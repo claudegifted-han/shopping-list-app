@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "dshs-ai-agents-mcp",
+  "version": "2.0.0",
+  "description": "대전과학고등학교 AI 에이전트 시스템 MCP 설정",
+
+  "mcpServers": {
+    "notion": {
+      "description": "Notion 데이터베이스 연동",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-notion"],
+      "env": {
+        "NOTION_API_KEY": "${NOTION_API_KEY}"
+      },
+      "databases": {
+        "students": {
+          "id": "${NOTION_DB_STUDENTS}",
+          "description": "학생 명부",
+          "security_level": "high"
+        },
+        "teachers": {
+          "id": "${NOTION_DB_TEACHERS}",
+          "description": "교직원 명부",
+          "security_level": "high"
+        },
+        "research": {
+          "id": "${NOTION_DB_RESEARCH}",
+          "description": "자율연구 현황",
+          "security_level": "standard"
+        },
+        "events": {
+          "id": "${NOTION_DB_EVENTS}",
+          "description": "학사일정",
+          "security_level": "standard"
+        },
+        "meetings": {
+          "id": "${NOTION_DB_MEETINGS}",
+          "description": "회의록",
+          "security_level": "standard"
+        },
+        "documents": {
+          "id": "${NOTION_DB_DOCUMENTS}",
+          "description": "공문/문서",
+          "security_level": "standard"
+        },
+        "clubs": {
+          "id": "${NOTION_DB_CLUBS}",
+          "description": "동아리",
+          "security_level": "standard"
+        }
+      }
+    },
+    "github": {
+      "description": "GitHub 저장소 연동 (선택)",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "filesystem": {
+      "description": "로컬 파일 시스템 접근",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./data", "./templates"],
+      "allowedPaths": [
+        "./data",
+        "./templates",
+        "./prompts"
+      ]
+    }
+  },
+
+  "securitySettings": {
+    "levels": {
+      "highest": {
+        "databases": ["grades", "admission", "counseling"],
+        "agents": ["evaluation", "admission", "student_life", "ceo_strategy"]
+      },
+      "high": {
+        "databases": ["students", "teachers"],
+        "agents": ["academic_affairs", "edtech"]
+      },
+      "standard": {
+        "databases": ["research", "events", "meetings", "documents", "clubs"],
+        "agents": ["all"]
+      }
+    },
+    "auditLog": true,
+    "sensitiveDataMasking": true
+  },
+
+  "toolMappings": {
+    "notion_search": "mcp__notion__API-post-search",
+    "notion_get_page": "mcp__notion__API-retrieve-a-page",
+    "notion_create_page": "mcp__notion__API-post-page",
+    "notion_update_page": "mcp__notion__API-patch-page",
+    "notion_get_database": "mcp__notion__API-retrieve-a-database",
+    "notion_query_database": "mcp__notion__API-query-data-source"
+  },
+
+  "defaultSettings": {
+    "language": "ko",
+    "timezone": "Asia/Seoul",
+    "dateFormat": "YYYY-MM-DD",
+    "numberFormat": "ko-KR"
+  }
+}

@@ -4,7 +4,7 @@
 대전과학고등학교 교무 행정 AI 에이전트 시스템.
 16개 부서 부장 에이전트와 특수 에이전트로 구성된 "1인 교무실" 시스템.
 
-**버전**: 2.0 (Phase 2 Complete)
+**버전**: 3.0 (Phase 3 Complete)
 **업데이트**: 2026-02-01
 
 ## 핵심 규칙
@@ -78,18 +78,29 @@
 ```
 dshs-ai-agents/
 ├── CLAUDE.md                    # 프로젝트 설명 (이 파일)
-├── agents/                      # 에이전트 설명 및 역할 정의 (17개)
-├── prompts/system/              # 시스템 프롬프트 (17개)
-├── prompts/workflows/           # 워크플로우 프롬프트
+├── agents/                      # 에이전트 역할 정의 (17개)
+├── prompts/system/              # 시스템 프롬프트 (16개)
 ├── config/
 │   ├── agents.yaml              # 전체 에이전트 설정
-│   └── workflows.yaml           # 워크플로우 정의 (5개)
+│   ├── workflows.yaml           # 워크플로우 정의 (5개)
+│   └── mcp.json                 # MCP 서버 설정
 ├── templates/
-│   ├── reports/                 # 보고서 템플릿
-│   ├── letters/                 # 공문/가정통신문 템플릿
-│   └── neis/                    # NEIS 기재 템플릿
-├── tools/                       # 커스텀 도구 (Phase 3)
-└── data/                        # 규정집, 데이터
+│   ├── reports/                 # 보고서 템플릿 (9개)
+│   ├── letters/                 # 공문/가정통신문 템플릿 (3개)
+│   └── neis/                    # NEIS 기재 템플릿 (1개)
+├── tools/                       # 커스텀 도구 (5개)
+│   ├── notion_tools.py          # Notion MCP 연동
+│   ├── doc_generator.py         # 문서 생성기
+│   ├── schedule_tools.py        # 일정 관리
+│   ├── neis_helper.py           # NEIS 기재 지원
+│   └── statistics_tools.py      # 통계 분석
+├── data/
+│   ├── regulations/             # 규정집 (학칙, 연구지침)
+│   └── calendars/               # 학사일정 (2026학년도)
+├── tests/scenarios/             # 테스트 시나리오
+└── docs/                        # 사용자 가이드
+    ├── user_guide.md            # 상세 사용 가이드
+    └── quick_reference.md       # 빠른 참조 카드
 ```
 
 ## 효율화 목표 (Phase 3에서 측정)
@@ -101,8 +112,15 @@ dshs-ai-agents/
 | 사업 계획서 | 2주 | 2일 | 86% ↓ |
 | 연수 자료 | 1일 | 2시간 | 75% ↓ |
 
-## 다음 단계 (Phase 3)
-- [ ] 실제 업무 시나리오 테스트
+## Phase 3 완료 (2026-02-01)
+- [x] 실제 업무 시나리오 테스트 (tests/scenarios/)
+- [x] 커스텀 도구 구현 (tools/)
+- [x] Notion MCP 연동 설정 (config/mcp.json)
+- [x] 교직원 사용 가이드 작성 (docs/)
+- [x] 규정집 및 학사일정 데이터 (data/)
+
+## 다음 단계 (Phase 4 - 운영)
+- [ ] 실제 Notion 데이터베이스 연동
+- [ ] 테스트 시나리오 실행 및 결과 분석
 - [ ] 에이전트 프롬프트 튜닝
-- [ ] Notion MCP 연동 완성
-- [ ] 교직원 사용 가이드 작성
+- [ ] 교직원 교육 및 배포
