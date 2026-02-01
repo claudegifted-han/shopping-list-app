@@ -1,0 +1,51 @@
+# 환경 변수 (절대 커밋 금지!)
+.env
+.env.local
+.env.*.local
+.env.notion
+
+# API 키 및 비밀 정보
+*.key
+*.pem
+credentials.json
+secrets.yaml
+secret_*
+
+# 로그 파일
+logs/*.log
+logs/*.db
+*.log
+
+# 리포트 출력
+pilot_results/
+*.report.json
+deployment_report.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 임시 파일
+*.tmp
+*.temp
+*.bak
+
+# Notion 설정 (생성 후 config로 이동)
+notion_config.json

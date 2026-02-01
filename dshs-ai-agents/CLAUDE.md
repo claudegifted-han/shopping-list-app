@@ -4,7 +4,7 @@
 대전과학고등학교 교무 행정 AI 에이전트 시스템.
 16개 부서 부장 에이전트와 특수 에이전트로 구성된 "1인 교무실" 시스템.
 
-**버전**: 4.0 (Phase 4 Complete - 운영 준비 완료)
+**버전**: 5.0 (Phase 5 - 실제 운영 준비)
 **업데이트**: 2026-02-01
 
 ## 핵심 규칙
@@ -88,12 +88,18 @@ dshs-ai-agents/
 │   ├── reports/                 # 보고서 템플릿 (9개)
 │   ├── letters/                 # 공문/가정통신문 템플릿 (3개)
 │   └── neis/                    # NEIS 기재 템플릿 (1개)
-├── tools/                       # 커스텀 도구 (5개)
+├── tools/                       # 커스텀 도구 (6개)
 │   ├── notion_tools.py          # Notion MCP 연동
 │   ├── doc_generator.py         # 문서 생성기
 │   ├── schedule_tools.py        # 일정 관리
 │   ├── neis_helper.py           # NEIS 기재 지원
-│   └── statistics_tools.py      # 통계 분석
+│   ├── statistics_tools.py      # 통계 분석
+│   └── monitoring.py            # 모니터링 및 로깅
+├── scripts/                     # 운영 스크립트 (4개)
+│   ├── setup_notion_databases.py # Notion DB 자동 생성
+│   ├── deployment_validator.py   # 배포 검증
+│   ├── generate_report.py        # 리포트 생성
+│   └── pilot_test.py             # 파일럿 테스트
 ├── data/
 │   ├── regulations/             # 규정집 (학칙, 연구지침)
 │   └── calendars/               # 학사일정 (2026학년도)
@@ -146,9 +152,36 @@ dshs-ai-agents/
 | 2단계 | 부장교사 | 1주 | 기능 검증 |
 | 3단계 | 전 교직원 | 2주 | 전체 배포 |
 
-## 다음 단계 (Phase 5 - 실제 운영)
-- [ ] Notion 워크스페이스 생성 및 데이터베이스 구축
-- [ ] Notion Integration 연동
-- [ ] IT 담당자 파일럿 배포
-- [ ] 부장교사 대상 교육 및 테스트
-- [ ] 전 교직원 배포 및 교육
+## Phase 5 완료 (2026-02-01) - 실제 운영 준비
+- [x] Notion 데이터베이스 자동 생성 스크립트 (scripts/setup_notion_databases.py)
+- [x] 배포 환경 검증 도구 (scripts/deployment_validator.py)
+- [x] 모니터링 및 로깅 시스템 (tools/monitoring.py)
+- [x] 사용 통계 리포트 생성기 (scripts/generate_report.py)
+- [x] 파일럿 테스트 도구 (scripts/pilot_test.py)
+
+## 실제 배포 체크리스트
+```
+Phase 5-1: IT 담당자 파일럿 (1주)
+□ Notion 워크스페이스 생성 (notion.so)
+□ scripts/setup_notion_databases.py 실행
+□ .env 파일 설정 (API 키, DB ID)
+□ scripts/deployment_validator.py --full 실행
+□ MCP 서버 설정 확인
+□ scripts/pilot_test.py --quick 실행
+
+Phase 5-2: 부장교사 테스트 (1주)
+□ scripts/pilot_test.py --full 실행
+□ 피드백 수집 및 프롬프트 튜닝
+□ 운영 매뉴얼 검토
+
+Phase 5-3: 전교직원 배포 (2주)
+□ 교직원 교육 (docs/training/teacher_training_guide.md)
+□ 모니터링 대시보드 운영 (tools/monitoring.py --dashboard)
+□ 주간 리포트 생성 (scripts/generate_report.py --weekly)
+```
+
+## 다음 단계 (Phase 6 - 확장)
+- [ ] 사용자 피드백 기반 프롬프트 개선
+- [ ] 추가 에이전트 개발 (필요시)
+- [ ] 외부 시스템 연동 확대
+- [ ] 월간 운영 보고서 자동화

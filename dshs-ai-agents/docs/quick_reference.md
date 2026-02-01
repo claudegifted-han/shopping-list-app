@@ -98,4 +98,27 @@
 
 ---
 
-**버전 2.0 | 2026-02-01**
+---
+
+## 운영 도구 (관리자용)
+
+```bash
+# 배포 전 환경 검증
+python scripts/deployment_validator.py --full
+
+# Notion 데이터베이스 생성
+python scripts/setup_notion_databases.py
+
+# 파일럿 테스트
+python scripts/pilot_test.py --quick
+
+# 사용 현황 대시보드
+python -c "from tools.monitoring import AgentMonitor; AgentMonitor().print_dashboard()"
+
+# 주간 리포트 생성
+python scripts/generate_report.py --weekly
+```
+
+---
+
+**버전 5.0 | 2026-02-01**
