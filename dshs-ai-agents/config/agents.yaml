@@ -1,9 +1,9 @@
 # DSHS AI Agent System Configuration
 # 대전과학고등학교 AI 에이전트 시스템 설정
 
-version: "2.0"
+version: "3.0"
 updated: "2026-02-01"
-status: "Phase 2 Complete"
+status: "Phase 6 - External Services"
 
 # 기본 설정
 defaults:
@@ -324,6 +324,66 @@ agents:
       deep: { departments: 16, time: "10min" }
     security_level: standard
 
+  # ===========================================================================
+  # 외부 서비스 에이전트 (External Service Agents) - Phase 6 추가
+  # ===========================================================================
+
+  parent_support:
+    id: parent_support
+    name: 학부모지원
+    name_en: Parent Support Agent
+    role: 학부모 문의 응대 및 학교 정보 안내
+    model: claude-haiku-3-5-20241022
+    temperature: 0.5
+    system_prompt: agents/parent_support.md
+    capabilities:
+      - school_info
+      - procedure_guide
+      - faq_response
+      - contact_referral
+    tools:
+      - notion_search
+      - faq_database
+    security_level: standard
+    response_style: friendly
+
+  faq_bot:
+    id: faq_bot
+    name: FAQ
+    name_en: FAQ Bot
+    role: 자주 묻는 질문 자동 응답
+    model: claude-haiku-3-5-20241022
+    temperature: 0.3
+    system_prompt: agents/faq_bot.md
+    capabilities:
+      - question_classification
+      - faq_matching
+      - similar_question_suggestion
+    tools:
+      - faq_database
+    data_source: data/faq/school_faq.json
+    security_level: standard
+
+  freshman_guide:
+    id: freshman_guide
+    name: 신입생안내
+    name_en: Freshman Guide
+    role: 신입생 맞춤형 안내 및 적응 가이드
+    model: claude-haiku-3-5-20241022
+    temperature: 0.6
+    system_prompt: agents/freshman_guide.md
+    capabilities:
+      - admission_guide
+      - checklist_management
+      - orientation_support
+      - adaptation_tips
+    tools:
+      - faq_database
+      - checklist_tracker
+    data_source: data/freshman/checklist.json
+    security_level: standard
+    response_style: encouraging
+
 # =============================================================================
 # 에이전트 그룹 정의
 # =============================================================================
@@ -362,5 +422,13 @@ agent_groups:
     members:
       - ceo_strategy
       - brainstorm
+
+  external_service:
+    name: 외부 서비스 에이전트
+    members:
+      - parent_support
+      - faq_bot
+      - freshman_guide
+    added_in: "Phase 6"
 
 # 워크플로우 설정은 workflows.yaml 참조

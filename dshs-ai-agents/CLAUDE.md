@@ -4,7 +4,7 @@
 대전과학고등학교 교무 행정 AI 에이전트 시스템.
 16개 부서 부장 에이전트와 특수 에이전트로 구성된 "1인 교무실" 시스템.
 
-**버전**: 5.0 (Phase 5 - 실제 운영 준비)
+**버전**: 6.0 (Phase 6 Complete - 확장 기능)
 **업데이트**: 2026-02-01
 
 ## 핵심 규칙
@@ -30,7 +30,7 @@
 @전략기획실 신학년 준비 현황 전 부서 점검해줘
 ```
 
-## 배포된 에이전트 (17개)
+## 배포된 에이전트 (20개)
 
 ### CEO 전략기획실
 - [x] **ceo_strategy** - 전체 에이전트 오케스트레이션, 전략 자문
@@ -60,6 +60,11 @@
 ### 특수 에이전트 (1개)
 - [x] **brainstorm** (다부서 협의) - 정책 시뮬레이션, 기획회의 대체
 
+### 외부 서비스 에이전트 (3개) - Phase 6 추가
+- [x] **parent_support** (학부모지원) - 학부모 문의 응대, 학교 정보 안내
+- [x] **faq_bot** (FAQ) - 자주 묻는 질문 자동 응답
+- [x] **freshman_guide** (신입생안내) - 신입생 맞춤형 안내, 적응 가이드
+
 ## 데이터 소스
 - **Notion**: 학교 업무 데이터베이스 (MCP 연동)
 - **로컬 파일**: 규정집, 교육과정, 학사일정
@@ -88,13 +93,16 @@ dshs-ai-agents/
 │   ├── reports/                 # 보고서 템플릿 (9개)
 │   ├── letters/                 # 공문/가정통신문 템플릿 (3개)
 │   └── neis/                    # NEIS 기재 템플릿 (1개)
-├── tools/                       # 커스텀 도구 (6개)
+├── tools/                       # 커스텀 도구 (9개)
 │   ├── notion_tools.py          # Notion MCP 연동
 │   ├── doc_generator.py         # 문서 생성기
 │   ├── schedule_tools.py        # 일정 관리
 │   ├── neis_helper.py           # NEIS 기재 지원
 │   ├── statistics_tools.py      # 통계 분석
-│   └── monitoring.py            # 모니터링 및 로깅
+│   ├── monitoring.py            # 모니터링 및 로깅
+│   ├── feedback_system.py       # 피드백 수집 (Phase 6)
+│   ├── external_integrations.py # 외부 연동 (Phase 6)
+│   └── advanced_analytics.py    # 고급 분석 (Phase 6)
 ├── scripts/                     # 운영 스크립트 (4개)
 │   ├── setup_notion_databases.py # Notion DB 자동 생성
 │   ├── deployment_validator.py   # 배포 검증
@@ -180,8 +188,24 @@ Phase 5-3: 전교직원 배포 (2주)
 □ 주간 리포트 생성 (scripts/generate_report.py --weekly)
 ```
 
-## 다음 단계 (Phase 6 - 확장)
-- [ ] 사용자 피드백 기반 프롬프트 개선
-- [ ] 추가 에이전트 개발 (필요시)
-- [ ] 외부 시스템 연동 확대
-- [ ] 월간 운영 보고서 자동화
+## Phase 6 완료 (2026-02-01) - 확장 기능
+- [x] 피드백 수집 시스템 (tools/feedback_system.py)
+- [x] 추가 에이전트 3개 (학부모지원, FAQ, 신입생안내)
+- [x] 외부 시스템 연동 (tools/external_integrations.py)
+  - Google Calendar 연동 준비
+  - 이메일 알림 시스템
+  - NEIS 연동 준비
+- [x] 고급 분석 및 예측 (tools/advanced_analytics.py)
+  - 트렌드 분석
+  - 이상 징후 탐지
+  - 사용량 예측
+  - 자동 인사이트 생성
+- [x] FAQ 데이터베이스 (data/faq/school_faq.json)
+- [x] 신입생 체크리스트 (data/freshman/checklist.json)
+
+## 다음 단계 (Phase 7 - 고도화)
+- [ ] 실제 Google Calendar API 연동
+- [ ] SMTP 이메일 발송 연동
+- [ ] NEIS Open API 연동
+- [ ] 음성 인터페이스 추가 (선택)
+- [ ] 모바일 앱 연동 (선택)

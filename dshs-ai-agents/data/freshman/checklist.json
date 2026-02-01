@@ -1,0 +1,219 @@
+{
+  "version": "1.0",
+  "year": 2027,
+  "last_updated": "2026-02-01",
+  "checklists": {
+    "registration": {
+      "title": "입학 등록 체크리스트",
+      "deadline": "2026-12-20",
+      "items": [
+        {
+          "id": "REG01",
+          "task": "입학등록금 납부",
+          "description": "고지서에 안내된 계좌로 납부",
+          "deadline": "2026-12-15",
+          "required": true
+        },
+        {
+          "id": "REG02",
+          "task": "주민등록등본 제출",
+          "description": "최근 1개월 이내 발급본",
+          "deadline": "2026-12-20",
+          "required": true
+        },
+        {
+          "id": "REG03",
+          "task": "졸업(예정)증명서 제출",
+          "description": "중학교에서 발급",
+          "deadline": "2026-12-20",
+          "required": true
+        },
+        {
+          "id": "REG04",
+          "task": "학교생활기록부 사본",
+          "description": "중학교에 요청",
+          "deadline": "2026-12-20",
+          "required": true
+        },
+        {
+          "id": "REG05",
+          "task": "기숙사 신청서",
+          "description": "입사 희망자만 제출",
+          "deadline": "2026-12-20",
+          "required": false
+        },
+        {
+          "id": "REG06",
+          "task": "급식 신청",
+          "description": "온라인 시스템으로 신청",
+          "deadline": "2026-12-20",
+          "required": true
+        }
+      ]
+    },
+    "uniform": {
+      "title": "교복 준비 체크리스트",
+      "deadline": "2027-02-15",
+      "items": [
+        {
+          "id": "UNI01",
+          "task": "교복 치수 측정",
+          "description": "지정 업체 방문 또는 온라인 입력",
+          "deadline": "2027-01-15",
+          "required": true
+        },
+        {
+          "id": "UNI02",
+          "task": "동복 세트",
+          "description": "자켓, 셔츠, 바지/치마, 넥타이",
+          "deadline": "2027-02-15",
+          "required": true
+        },
+        {
+          "id": "UNI03",
+          "task": "하복 세트",
+          "description": "반팔셔츠, 바지/치마 (5월 이후 착용)",
+          "deadline": "2027-04-30",
+          "required": true
+        },
+        {
+          "id": "UNI04",
+          "task": "체육복",
+          "description": "상/하의 세트, 운동화",
+          "deadline": "2027-02-15",
+          "required": true
+        },
+        {
+          "id": "UNI05",
+          "task": "실내화",
+          "description": "흰색 운동화 권장",
+          "deadline": "2027-02-28",
+          "required": true
+        }
+      ]
+    },
+    "dormitory": {
+      "title": "기숙사 입사 준비물",
+      "deadline": "2027-02-28",
+      "items": [
+        {
+          "id": "DOR01",
+          "task": "침구류",
+          "description": "이불, 베개, 매트리스 패드 (학교 규격 확인)",
+          "required": true
+        },
+        {
+          "id": "DOR02",
+          "task": "세면도구",
+          "description": "칫솔, 치약, 비누, 샴푸 등",
+          "required": true
+        },
+        {
+          "id": "DOR03",
+          "task": "수건",
+          "description": "세면용, 목욕용 각 2장 이상",
+          "required": true
+        },
+        {
+          "id": "DOR04",
+          "task": "개인 수납함",
+          "description": "작은 서랍장 또는 수납박스",
+          "required": false
+        },
+        {
+          "id": "DOR05",
+          "task": "옷걸이",
+          "description": "10개 이상 권장",
+          "required": true
+        },
+        {
+          "id": "DOR06",
+          "task": "슬리퍼",
+          "description": "실내용 슬리퍼",
+          "required": true
+        },
+        {
+          "id": "DOR07",
+          "task": "우산",
+          "description": "접이식 우산 권장",
+          "required": true
+        },
+        {
+          "id": "DOR08",
+          "task": "개인 약품",
+          "description": "상비약 (두통약, 소화제 등)",
+          "required": false
+        }
+      ]
+    },
+    "school_supplies": {
+      "title": "학용품 체크리스트",
+      "deadline": "2027-02-28",
+      "items": [
+        {
+          "id": "SUP01",
+          "task": "노트북",
+          "description": "권장 사양: i5 이상, RAM 8GB 이상",
+          "required": false,
+          "note": "학교 컴퓨터실 이용 가능하나 개인 노트북 권장"
+        },
+        {
+          "id": "SUP02",
+          "task": "공책/바인더",
+          "description": "과목별 공책 또는 루스리프 바인더",
+          "required": true
+        },
+        {
+          "id": "SUP03",
+          "task": "필기구",
+          "description": "검정 볼펜, 샤프, 형광펜 등",
+          "required": true
+        },
+        {
+          "id": "SUP04",
+          "task": "공학용 계산기",
+          "description": "fx-570 이상 권장 (시험 시 사용 가능 기종 확인)",
+          "required": true
+        },
+        {
+          "id": "SUP05",
+          "task": "USB 메모리",
+          "description": "16GB 이상",
+          "required": true
+        },
+        {
+          "id": "SUP06",
+          "task": "가방",
+          "description": "노트북 수납 가능한 백팩 권장",
+          "required": true
+        }
+      ]
+    }
+  },
+  "important_dates": [
+    {
+      "date": "2027-02-25",
+      "event": "신입생 오리엔테이션",
+      "location": "본관 강당",
+      "time": "10:00"
+    },
+    {
+      "date": "2027-02-26",
+      "event": "기숙사 입사",
+      "location": "기숙사",
+      "time": "14:00"
+    },
+    {
+      "date": "2027-03-02",
+      "event": "입학식",
+      "location": "본관 강당",
+      "time": "10:00"
+    },
+    {
+      "date": "2027-03-02",
+      "event": "1학기 개학",
+      "location": "-",
+      "time": "-"
+    }
+  ]
+}
