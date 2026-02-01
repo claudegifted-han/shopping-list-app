@@ -4,7 +4,7 @@
 대전과학고등학교 교무 행정 AI 에이전트 시스템.
 16개 부서 부장 에이전트와 특수 에이전트로 구성된 "1인 교무실" 시스템.
 
-**버전**: 3.0 (Phase 3 Complete)
+**버전**: 4.0 (Phase 4 Complete - 운영 준비 완료)
 **업데이트**: 2026-02-01
 
 ## 핵심 규칙
@@ -97,10 +97,21 @@ dshs-ai-agents/
 ├── data/
 │   ├── regulations/             # 규정집 (학칙, 연구지침)
 │   └── calendars/               # 학사일정 (2026학년도)
-├── tests/scenarios/             # 테스트 시나리오
-└── docs/                        # 사용자 가이드
+├── tests/scenarios/             # 테스트 시나리오 및 결과
+│   ├── test_scenarios.md        # 13개 테스트 시나리오
+│   └── test_results.md          # 테스트 결과 보고서
+└── docs/                        # 문서
     ├── user_guide.md            # 상세 사용 가이드
-    └── quick_reference.md       # 빠른 참조 카드
+    ├── quick_reference.md       # 빠른 참조 카드
+    ├── setup/                   # 설정 가이드
+    │   ├── notion_setup_guide.md    # Notion 설정 가이드
+    │   └── mcp_configuration.md     # MCP 설정 가이드
+    ├── training/                # 교육 자료
+    │   └── teacher_training_guide.md # 교직원 교육 자료
+    └── operations/              # 운영 매뉴얼
+        ├── operations_manual.md     # 운영 매뉴얼
+        ├── prompt_tuning_guide.md   # 프롬프트 튜닝 가이드
+        └── deployment_guide.md      # 배포 가이드
 ```
 
 ## 효율화 목표 (Phase 3에서 측정)
@@ -119,8 +130,25 @@ dshs-ai-agents/
 - [x] 교직원 사용 가이드 작성 (docs/)
 - [x] 규정집 및 학사일정 데이터 (data/)
 
-## 다음 단계 (Phase 4 - 운영)
-- [ ] 실제 Notion 데이터베이스 연동
-- [ ] 테스트 시나리오 실행 및 결과 분석
-- [ ] 에이전트 프롬프트 튜닝
-- [ ] 교직원 교육 및 배포
+## Phase 4 완료 (2026-02-01) - 운영 준비
+- [x] 테스트 시나리오 실행 및 결과 분석 (13/13 PASS)
+- [x] Notion 데이터베이스 설정 가이드 작성
+- [x] MCP 설정 가이드 작성
+- [x] 교직원 교육 자료 개발 (2시간 교육 과정)
+- [x] 운영 매뉴얼 작성 (일일/주간/월간 운영)
+- [x] 프롬프트 튜닝 가이드 작성
+- [x] 단계별 배포 가이드 작성
+
+## 배포 계획
+| 단계 | 대상 | 기간 | 목표 |
+|------|------|------|------|
+| 1단계 | IT 담당자 | 1주 | 시스템 검증 |
+| 2단계 | 부장교사 | 1주 | 기능 검증 |
+| 3단계 | 전 교직원 | 2주 | 전체 배포 |
+
+## 다음 단계 (Phase 5 - 실제 운영)
+- [ ] Notion 워크스페이스 생성 및 데이터베이스 구축
+- [ ] Notion Integration 연동
+- [ ] IT 담당자 파일럿 배포
+- [ ] 부장교사 대상 교육 및 테스트
+- [ ] 전 교직원 배포 및 교육
