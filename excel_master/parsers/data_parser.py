@@ -86,8 +86,11 @@ class DataParser:
         header_row = rows[data_start - 1] if data_start > 0 else rows[0]
         data_rows = rows[data_start:]
 
-        # 반복 횟수 결정
-        repetitions = self._detect_repetitions(header_row)
+        # 반복 횟수 결정 (메타데이터에서 이미 감지된 경우 사용)
+        if "repetitions" in metadata:
+            repetitions = metadata["repetitions"]
+        else:
+            repetitions = self._detect_repetitions(header_row)
 
         # 데이터 파싱
         independent_values = []
@@ -130,36 +133,120 @@ class DataParser:
         """메타데이터 추출"""
         metadata = {"data_start_row": 1}
 
-        # 첫 번째 행에서 메타데이터 추출 시도
-        if rows and rows[0]:
-            first_row = rows[0]
+        if not rows or not rows[0]:
+            return metadata
 
-            # 키-값 쌍 형식 감지 (예: "실험명: 자유낙하")
-            for cell in first_row:
-                if cell and isinstance(cell, str) and ":" in cell:
-                    key, value = cell.split(":", 1)
-                    key = key.strip().lower()
-                    value = value.strip()
+        first_row = rows[0]
 
-                    if "실험" in key and "명" in key:
-                        metadata["experiment_name"] = value
-                    elif "조작" in key:
-                        metadata["independent_var"] = value
-                    elif "종속" in key:
-                        metadata["dependent_var"] = value
-                    elif "단위" in key:
-                        if "조작" in key:
-                            metadata["independent_unit"] = value
-                        else:
-                            metadata["dependent_unit"] = value
-                    elif "최소" in key and "눈금" in key:
-                        metadata["min_scale"] = float(value)
+        # 패턴 1: 키-값 쌍 형식 (예: "실험명: 자유낙하")
+        for cell in first_row:
+            if cell and isinstance(cell, str) and ":" in cell:
+                key, value = cell.split(":", 1)
+                key = key.strip().lower()
+                value = value.strip()
 
-            # 메타데이터가 발견되면 데이터 시작 행 증가
-            if len(metadata) > 1:
+                if "실험" in key and "명" in key:
+                    metadata["experiment_name"] = value
+                elif "조작" in key:
+                    metadata["independent_var"] = value
+                elif "종속" in key:
+                    metadata["dependent_var"] = value
+                elif "단위" in key:
+                    if "조작" in key:
+                        metadata["independent_unit"] = value
+                    else:
+                        metadata["dependent_unit"] = value
+                elif "최소" in key and "눈금" in key:
+                    metadata["min_scale"] = float(value)
+
+        # 패턴 2: 헤더 형식 (예: "낙하 높이 (m)", "낙하 시간 (s)")
+        # 첫 번째 셀 = 조작 변인, 두 번째 셀 = 종속 변인
+        if "independent_var" not in metadata:
+            var_name, unit = self._parse_header_cell(first_row[0])
+            if var_name:
+                metadata["independent_var"] = var_name
+                if unit:
+                    metadata["independent_unit"] = unit
+
+        if "dependent_var" not in metadata and len(first_row) > 1:
+            var_name, unit = self._parse_header_cell(first_row[1])
+            if var_name:
+                metadata["dependent_var"] = var_name
+                if unit:
+                    metadata["dependent_unit"] = unit
+
+        # 두 번째 행이 서브헤더인지 확인 (1회, 2회, ... 패턴)
+        if len(rows) > 1 and rows[1]:
+            second_row = rows[1]
+            sub_header_count = 0
+            for cell in second_row[1:]:  # 첫 열 제외
+                if cell and isinstance(cell, str):
+                    cell_str = str(cell).strip()
+                    if re.match(r"^\d+회$|^측정\s*\d+$|^trial\s*\d+$", cell_str, re.IGNORECASE):
+                        sub_header_count += 1
+
+            # 서브헤더가 2개 이상이면 2행 헤더 구조
+            if sub_header_count >= 2:
                 metadata["data_start_row"] = 2
+                metadata["has_sub_header"] = True
+                # 서브헤더에서 반복 횟수 감지
+                metadata["repetitions"] = self._count_repetitions_from_subheader(second_row)
+
+        # 실험명이 없으면 조작변인/종속변인으로 생성
+        if "experiment_name" not in metadata:
+            ind_var = metadata.get("independent_var", "")
+            dep_var = metadata.get("dependent_var", "")
+            if ind_var and dep_var:
+                metadata["experiment_name"] = f"{ind_var}에 따른 {dep_var} 측정"
+            elif ind_var:
+                metadata["experiment_name"] = f"{ind_var} 실험"
+            elif dep_var:
+                metadata["experiment_name"] = f"{dep_var} 측정"
 
         return metadata
+
+    def _parse_header_cell(self, cell: Any) -> Tuple[str, str]:
+        """헤더 셀에서 변인명과 단위 추출
+
+        예시:
+        - "낙하 높이 (m)" → ("낙하 높이", "m")
+        - "시간(s)" → ("시간", "s")
+        - "온도 [°C]" → ("온도", "°C")
+        - "속도" → ("속도", "")
+        """
+        if not cell or not isinstance(cell, str):
+            return "", ""
+
+        cell = str(cell).strip()
+
+        # 괄호 또는 대괄호 안의 단위 추출
+        # 패턴: "변인명 (단위)" 또는 "변인명(단위)" 또는 "변인명 [단위]"
+        match = re.match(r"^(.+?)\s*[\(\[]\s*(.+?)\s*[\)\]]$", cell)
+        if match:
+            var_name = match.group(1).strip()
+            unit = match.group(2).strip()
+            return var_name, unit
+
+        # 단위가 없는 경우
+        return cell, ""
+
+    def _count_repetitions_from_subheader(self, sub_header_row: List[Any]) -> int:
+        """서브헤더에서 반복 횟수 계산"""
+        count = 0
+        for cell in sub_header_row[1:]:  # 첫 열 제외
+            if cell is None or cell == "":
+                continue
+            cell_str = str(cell).strip().lower()
+            # "1회", "2회", "측정1", "trial1" 등의 패턴
+            if re.match(r"^\d+회$|^측정\s*\d+$|^trial\s*\d+$", cell_str, re.IGNORECASE):
+                count += 1
+            elif "평균" in cell_str or "average" in cell_str:
+                break
+            elif "불확도" in cell_str or "uncertainty" in cell_str:
+                break
+            elif "표준" in cell_str or "std" in cell_str:
+                break
+        return max(count, 3)  # 최소 3회
 
     def _detect_repetitions(self, header_row: List[Any]) -> int:
         """헤더에서 반복 횟수 감지"""
