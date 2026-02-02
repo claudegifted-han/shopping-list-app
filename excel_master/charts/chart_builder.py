@@ -41,12 +41,35 @@ class ChartBuilder:
             import matplotlib
             matplotlib.use('Agg')  # GUI 없는 환경용
             import matplotlib.pyplot as plt
+            import matplotlib.font_manager as fm
 
-            # 한글 폰트 설정 시도
-            try:
-                plt.rcParams['font.family'] = ['DejaVu Sans', 'Malgun Gothic', 'AppleGothic', 'sans-serif']
-            except Exception:
-                pass
+            # 한글 폰트 설정 (우선순위 순)
+            korean_fonts = [
+                'Malgun Gothic',      # Windows
+                'AppleGothic',        # macOS
+                'NanumGothic',        # Linux (Nanum)
+                'NanumBarunGothic',   # Linux (Nanum)
+                'WenQuanYi Zen Hei',  # Linux (CJK)
+                'Unifont',            # Linux (Unicode)
+                'IPAGothic',          # Linux (IPA)
+                'DejaVu Sans',        # Fallback
+            ]
+
+            # 사용 가능한 폰트 찾기
+            available_fonts = {f.name for f in fm.fontManager.ttflist}
+            selected_font = None
+
+            for font in korean_fonts:
+                if font in available_fonts:
+                    selected_font = font
+                    break
+
+            if selected_font:
+                plt.rcParams['font.family'] = selected_font
+            else:
+                # 폰트를 찾지 못한 경우 sans-serif 사용
+                plt.rcParams['font.family'] = 'sans-serif'
+                plt.rcParams['font.sans-serif'] = korean_fonts + ['sans-serif']
 
             plt.rcParams['axes.unicode_minus'] = False
 
