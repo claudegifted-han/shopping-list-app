@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Utensils } from 'lucide-react'
-import { format, addDays, subDays, parseISO } from 'date-fns'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { format, addDays, subDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { cn } from '@/lib/utils/cn'
 import type { Meal, MealType } from '@/types/database'
 
 const mealTypeLabels: Record<MealType, string> = {
@@ -15,17 +14,13 @@ const mealTypeLabels: Record<MealType, string> = {
   dinner: '저녁',
 }
 
-const mealTypeIcons: Record<MealType, string> = {
-  breakfast: '🌅',
-  lunch: '☀️',
-  dinner: '🌙',
-}
-
 export default function MealsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [meals, setMeals] = useState<Meal[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
+
+  const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
 
   useEffect(() => {
     fetchMeals()
@@ -62,66 +57,98 @@ export default function MealsPage() {
     return menu.split(',').map((item) => item.trim())
   }
 
+  // Get current meal time
+  const getCurrentMealType = (): MealType | null => {
+    const hour = new Date().getHours()
+    if (hour < 9) return 'breakfast'
+    if (hour < 14) return 'lunch'
+    if (hour < 20) return 'dinner'
+    return null
+  }
+
+  const currentMealType = isToday ? getCurrentMealType() : null
+
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Utensils className="h-6 w-6" />
-          급식
-        </h1>
-      </div>
-
       {/* Date Navigation */}
-      <div className="flex items-center justify-center gap-4 mb-8">
-        <Button variant="ghost" size="sm" onClick={goToPreviousDay}>
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={goToPreviousDay}
+          className="p-2 rounded-lg hover:bg-background-secondary transition-colors"
+        >
           <ChevronLeft className="h-5 w-5" />
-        </Button>
+        </button>
 
         <div className="text-center">
-          <p className="text-lg font-semibold">
-            {format(selectedDate, 'yyyy년 M월 d일', { locale: ko })}
-          </p>
-          <p className="text-sm text-foreground-secondary">
-            {format(selectedDate, 'EEEE', { locale: ko })}
-          </p>
+          <div className="flex items-center justify-center gap-2">
+            <p className="text-lg font-semibold">
+              {format(selectedDate, 'M월 d일', { locale: ko })}
+            </p>
+            <span className="text-foreground-secondary">
+              {format(selectedDate, 'EEEE', { locale: ko })}
+            </span>
+            {isToday && (
+              <span className="text-xs bg-accent text-white px-2 py-0.5 rounded">오늘</span>
+            )}
+          </div>
         </div>
 
-        <Button variant="ghost" size="sm" onClick={goToNextDay}>
+        <button
+          onClick={goToNextDay}
+          className="p-2 rounded-lg hover:bg-background-secondary transition-colors"
+        >
           <ChevronRight className="h-5 w-5" />
-        </Button>
+        </button>
       </div>
 
       {/* Today Button */}
-      {format(selectedDate, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd') && (
+      {!isToday && (
         <div className="flex justify-center mb-6">
-          <Button variant="default" size="sm" onClick={goToToday}>
+          <button
+            onClick={goToToday}
+            className="px-4 py-2 rounded-lg border border-border hover:border-accent transition-colors text-sm"
+          >
             오늘로 이동
-          </Button>
+          </button>
         </div>
       )}
 
       {/* Meal Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((type) => {
-          const meal = getMealByType(type)
-          const menuItems = formatMenu(meal?.menu ?? null)
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-3">
+          {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((type) => {
+            const meal = getMealByType(type)
+            const menuItems = formatMenu(meal?.menu ?? null)
+            const isCurrent = currentMealType === type
 
-          return (
-            <Card key={type} className="h-full">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <span>{mealTypeIcons[type]}</span>
-                  {mealTypeLabels[type]}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                  </div>
-                ) : menuItems && menuItems.length > 0 ? (
-                  <ul className="space-y-1.5">
+            return (
+              <div
+                key={type}
+                className={cn(
+                  'rounded-lg border p-4 transition-colors',
+                  isCurrent
+                    ? 'border-accent bg-accent/5'
+                    : 'border-border bg-background-secondary'
+                )}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className={cn(
+                    'font-medium',
+                    isCurrent && 'text-accent'
+                  )}>
+                    {mealTypeLabels[type]}
+                  </h3>
+                  {isCurrent && (
+                    <span className="text-xs bg-accent text-white px-2 py-0.5 rounded">현재</span>
+                  )}
+                </div>
+
+                {menuItems && menuItems.length > 0 ? (
+                  <ul className="space-y-1">
                     {menuItems.map((item, index) => (
                       <li key={index} className="text-sm text-foreground-secondary">
                         {item}
@@ -130,20 +157,18 @@ export default function MealsPage() {
                   </ul>
                 ) : (
                   <p className="text-sm text-foreground-secondary text-center py-4">
-                    급식 정보가 없습니다
+                    없음
                   </p>
                 )}
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Info */}
       <p className="text-xs text-foreground-secondary text-center mt-8">
         급식 정보는 학교에서 제공하는 데이터를 기반으로 합니다.
-        <br />
-        실제 급식과 다를 수 있습니다.
       </p>
     </div>
   )
