@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, MapPin, X, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin, X, Search, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/auth-provider'
 import type { ApplicationStatus } from '@/types/database'
@@ -53,6 +54,13 @@ const areaCapacity: Record<string, number> = {
   a1: 15, a2: 18, a3: 8, a4: 18, a5: 10, a6: 15, a7: 16, a8: 23,
   b1: 14, b2: 8, b3: 12, b4: 4, b5: 11, b6: 6, b7: 24, b8: 19, b9: 4,
   s1: 18, s2: 18, s3: 18, s4: 18, s5: 18, s6: 8,
+}
+
+// 건물 평면도 이미지 경로 (실제 이미지로 교체 필요)
+const buildingImages: Record<BuildingTab, string | null> = {
+  A: null, // '/images/building-a.png'
+  B: null, // '/images/building-b.png'
+  S: null, // S 건물은 이미지 대신 직접 좌석 표시
 }
 
 export default function StudyPage() {
@@ -209,12 +217,6 @@ export default function StudyPage() {
     setSelectedDate(newDate)
   }
 
-  // 건물별 좌석 필터링
-  const getSeatsForBuilding = (building: BuildingTab) => {
-    const prefix = building.toLowerCase()
-    return seats.filter((seat) => seat.room_name.toLowerCase().startsWith(prefix))
-  }
-
   // 영역별 정보 계산
   const getAreaInfo = (areaName: string): AreaInfo => {
     const areaSeats = seats.filter((seat) => seat.room_name.toLowerCase() === areaName)
@@ -253,6 +255,7 @@ export default function StudyPage() {
   }
 
   const canApply = !myApplication
+  const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
 
   return (
     <div className="h-full flex flex-col">
@@ -263,47 +266,49 @@ export default function StudyPage() {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="font-medium">
-            {format(selectedDate, 'M월 d일', { locale: ko }) === format(new Date(), 'M월 d일', { locale: ko })
-              ? '오늘'
-              : format(selectedDate, 'M월 d일', { locale: ko })}
+            {isToday ? '오늘' : format(selectedDate, 'M월 d일', { locale: ko })}
           </span>
           <Button variant="ghost" size="sm" onClick={() => changeDate(1)}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* 내 신청 현황 */}
-        {myApplication && (
-          <div className="flex items-center gap-2 text-sm">
-            <MapPin className="h-4 w-4 text-accent" />
-            <span>{myApplication.room_name} {myApplication.seat_number}</span>
-            <Button variant="ghost" size="sm" onClick={handleCancel} disabled={applying}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+        {/* 내 좌석 표시 */}
+        <div className="flex items-center gap-2 text-sm">
+          <MapPin className="h-4 w-4 text-foreground-secondary" />
+          {myApplication ? (
+            <>
+              <span className="font-medium">{myApplication.room_name.toUpperCase()} - {myApplication.seat_number}</span>
+              <Button variant="ghost" size="sm" onClick={handleCancel} disabled={applying}>
+                <X className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <span className="text-foreground-secondary">----</span>
+          )}
+        </div>
       </div>
 
-      {/* Building Tabs */}
-      <div className="flex border-b border-border">
-        {(['A', 'B', 'S'] as BuildingTab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setSelectedTab(tab)}
-            className={`flex-1 py-3 text-center font-medium transition-colors ${
-              selectedTab === tab
-                ? 'bg-background-secondary text-foreground border-b-2 border-accent'
-                : 'text-foreground-secondary hover:text-foreground'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      {/* Building Tabs + Search */}
+      <div className="flex items-center gap-4 px-4 py-3 border-b border-border">
+        <div className="flex border border-border rounded-lg overflow-hidden">
+          {(['A', 'B', 'S'] as BuildingTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setSelectedTab(tab)}
+              className={cn(
+                'px-8 py-2 text-center font-medium transition-colors',
+                selectedTab === tab
+                  ? 'bg-background-secondary text-foreground'
+                  : 'text-foreground-secondary hover:text-foreground hover:bg-background-secondary/50'
+              )}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
 
-      {/* Search Bar */}
-      <div className="px-4 py-3">
-        <div className="relative">
+        <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-secondary" />
           <Input
             type="search"
@@ -316,93 +321,128 @@ export default function StudyPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
           </div>
         ) : selectedTab === 'S' ? (
           /* S Building - Column Layout */
-          <div className="overflow-x-auto">
-            <div className="inline-flex gap-4 min-w-full pb-4">
-              {buildingAreas.S.map((columnName) => {
-                const columnSeats = getSColumnSeats(columnName)
-                return (
-                  <div key={columnName} className="flex-shrink-0 w-24">
-                    <div className="text-center font-bold text-lg mb-3">{columnName}</div>
-                    <div className="space-y-2">
-                      {columnSeats.map((seat) => {
-                        const isOccupied = !!(seat.application && seat.application.status !== 'cancelled')
-                        const isMine = myApplication?.seat_id === seat.id
-                        const isSelected = selectedSeat === seat.id
-                        return (
-                          <button
-                            key={seat.id}
-                            onClick={() => canApply && !isOccupied && handleSeatSelect(seat.id)}
-                            disabled={isOccupied || !canApply}
-                            className={`w-full py-2 px-3 rounded text-sm font-medium transition-colors ${
-                              isMine
-                                ? 'bg-accent text-white'
-                                : isOccupied
-                                  ? 'bg-foreground-secondary/20 text-foreground-secondary cursor-not-allowed'
-                                  : isSelected
-                                    ? 'bg-accent text-white'
-                                    : 'bg-background-secondary hover:bg-accent/20'
-                            }`}
-                          >
-                            {seat.seat_number}
-                          </button>
-                        )
-                      })}
+          <div className="p-4">
+            <div className="bg-background-secondary rounded-lg p-4 overflow-x-auto">
+              <div className="flex gap-4 min-w-max">
+                {buildingAreas.S.map((columnName) => {
+                  const columnSeats = getSColumnSeats(columnName)
+                  const columnInfo = getAreaInfo(columnName)
+                  return (
+                    <div key={columnName} className="w-28">
+                      <div className="text-center font-bold text-lg mb-3">{columnName}</div>
+                      <div className="grid grid-cols-2 gap-1">
+                        {columnSeats.map((seat) => {
+                          const isOccupied = !!(seat.application && seat.application.status !== 'cancelled')
+                          const isMine = myApplication?.seat_id === seat.id
+                          const isSelected = selectedSeat === seat.id
+                          return (
+                            <button
+                              key={seat.id}
+                              onClick={() => canApply && !isOccupied && handleSeatSelect(seat.id)}
+                              disabled={isOccupied || !canApply}
+                              className={cn(
+                                'py-2 px-1 rounded text-xs font-medium transition-colors',
+                                isMine
+                                  ? 'bg-cyan-500 text-white'
+                                  : isOccupied
+                                    ? 'bg-foreground-secondary/30 text-foreground-secondary cursor-not-allowed'
+                                    : isSelected
+                                      ? 'bg-accent text-white'
+                                      : 'bg-background hover:bg-accent/20'
+                              )}
+                            >
+                              {seat.seat_number}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="flex items-center justify-center gap-1 text-xs text-foreground-secondary mt-3">
+                        <ArrowDown className="h-3 w-3" />
+                        <span>복도</span>
+                      </div>
                     </div>
-                    <div className="text-center text-xs text-foreground-secondary mt-2">↓ 복도</div>
-                  </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* S Building - Apply Button */}
+            {selectedSeat && canApply && (
+              <div className="mt-4">
+                <Button
+                  onClick={() => handleApply(selectedSeat)}
+                  disabled={applying}
+                  className="w-full"
+                >
+                  {applying ? '신청 중...' : '신청하기'}
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* A, B Buildings */
+          <div className="p-4 space-y-4">
+            {/* Building Floor Plan Image */}
+            {buildingImages[selectedTab] ? (
+              <div className="relative rounded-lg overflow-hidden bg-background-secondary">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={buildingImages[selectedTab]!}
+                  alt={`${selectedTab} 건물 평면도`}
+                  className="w-full h-auto"
+                />
+              </div>
+            ) : (
+              <div className="h-48 rounded-lg bg-background-secondary flex items-center justify-center">
+                <div className="text-foreground-secondary text-sm">
+                  {selectedTab}동 평면도
+                </div>
+              </div>
+            )}
+
+            {/* Area Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {buildingAreas[selectedTab].map((areaName) => {
+                const areaInfo = getAreaInfo(areaName)
+                const isFull = areaInfo.current >= areaInfo.max && areaInfo.max > 0
+                const percentage = areaInfo.max > 0 ? (areaInfo.current / areaInfo.max) * 100 : 0
+                return (
+                  <button
+                    key={areaName}
+                    onClick={() => setSelectedArea(areaName)}
+                    className={cn(
+                      'p-4 rounded-lg border transition-colors text-left',
+                      isFull
+                        ? 'bg-foreground-secondary/10 border-border'
+                        : 'bg-background-secondary border-border hover:border-accent'
+                    )}
+                  >
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-3xl font-bold">{areaName}</span>
+                      <span className="text-sm text-foreground-secondary">
+                        {areaInfo.current}/{areaInfo.max}
+                      </span>
+                    </div>
+                    <div className="mt-3 h-1 bg-background rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full transition-all',
+                          isFull ? 'bg-foreground-secondary' : 'bg-accent'
+                        )}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </button>
                 )
               })}
             </div>
-          </div>
-        ) : (
-          /* A, B Buildings - Area Cards */
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {buildingAreas[selectedTab].map((areaName) => {
-              const areaInfo = getAreaInfo(areaName)
-              const isFull = areaInfo.current >= areaInfo.max
-              return (
-                <button
-                  key={areaName}
-                  onClick={() => setSelectedArea(areaName)}
-                  className={`p-4 rounded-lg border transition-colors text-left ${
-                    isFull
-                      ? 'bg-foreground-secondary/10 border-border'
-                      : 'bg-background-secondary border-border hover:border-accent'
-                  }`}
-                >
-                  <div className="text-2xl font-bold">{areaName}</div>
-                  <div className="text-sm text-foreground-secondary mt-1">
-                    {areaInfo.current}/{areaInfo.max}
-                  </div>
-                  <div className="mt-2 h-1 bg-background rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all ${isFull ? 'bg-foreground-secondary' : 'bg-accent'}`}
-                      style={{ width: `${areaInfo.max > 0 ? (areaInfo.current / areaInfo.max) * 100 : 0}%` }}
-                    />
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {/* S Building - Apply Button */}
-        {selectedTab === 'S' && selectedSeat && canApply && (
-          <div className="fixed bottom-20 left-0 right-0 p-4 bg-background border-t border-border">
-            <Button
-              onClick={() => handleApply(selectedSeat)}
-              disabled={applying}
-              className="w-full"
-            >
-              {applying ? '신청 중...' : '신청하기'}
-            </Button>
           </div>
         )}
       </div>
@@ -411,16 +451,9 @@ export default function StudyPage() {
       {selectedArea && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeModal}>
           <div
-            className="bg-background rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-auto"
+            className="bg-background rounded-lg p-6 max-w-sm w-full mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">{selectedArea} 좌석 선택</h3>
-              <Button variant="ghost" size="sm" onClick={closeModal}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
             <div className="grid grid-cols-4 gap-2">
               {getAreaInfo(selectedArea).seats.map((seat) => {
                 const isOccupied = !!(seat.application && seat.application.status !== 'cancelled')
@@ -431,15 +464,16 @@ export default function StudyPage() {
                     key={seat.id}
                     onClick={() => canApply && !isOccupied && handleSeatSelect(seat.id)}
                     disabled={isOccupied || !canApply}
-                    className={`py-3 px-2 rounded text-sm font-medium transition-colors ${
+                    className={cn(
+                      'py-3 px-2 rounded text-sm font-medium transition-colors',
                       isMine
-                        ? 'bg-accent text-white'
+                        ? 'bg-cyan-500 text-white'
                         : isOccupied
-                          ? 'bg-foreground-secondary/20 text-foreground-secondary cursor-not-allowed'
+                          ? 'bg-foreground-secondary/30 text-foreground-secondary cursor-not-allowed'
                           : isSelected
                             ? 'bg-accent text-white'
                             : 'bg-background-secondary hover:bg-accent/20'
-                    }`}
+                    )}
                   >
                     {seat.seat_number}
                   </button>
