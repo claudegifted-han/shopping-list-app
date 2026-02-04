@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* 라이트 테마 (기본) */
+:root {
+  --background: #ffffff;
+  --background-secondary: #f8fafc;
+  --background-card: #f1f5f9;
+  --foreground: #0f172a;
+  --foreground-secondary: #64748b;
+  --border: #e2e8f0;
+  --border-accent: #3b82f6;
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
+  --success: #16a34a;
+  --success-bg: #f0fdf4;
+  --link: #2563eb;
+  --sidebar-bg: #f8fafc;
+  --sidebar-border: #e2e8f0;
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+}
+
+/* 다크 테마 */
+.dark {
+  --background: #0a0a0f;
+  --background-secondary: #0f172a;
+  --background-card: #1e293b;
+  --foreground: #f8fafc;
+  --foreground-secondary: #94a3b8;
+  --border: #334155;
+  --border-accent: #1e40af;
+  --accent: #7c3aed;
+  --accent-hover: #8b5cf6;
+  --danger: #ef4444;
+  --danger-bg: #7f1d1d;
+  --success: #22c55e;
+  --success-bg: #14532d;
+  --link: #3b82f6;
+  --sidebar-bg: #0f172a;
+  --sidebar-border: #1e293b;
+  --input-bg: #1e293b;
+  --input-border: #334155;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-secondary: var(--background-secondary);
+  --color-background-card: var(--background-card);
+  --color-foreground: var(--foreground);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-border: var(--border);
+  --color-border-accent: var(--border-accent);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-link: var(--link);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  min-height: 100vh;
+}
+
+/* 스크롤바 스타일 (다크 테마 최적화) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground-secondary);
+}
+
+/* 포커스 링 스타일 */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 셀렉션 스타일 */
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+/* 링크 기본 스타일 */
+a {
+  color: var(--link);
+}
+
+a:hover {
+  text-decoration: underline;
+}
