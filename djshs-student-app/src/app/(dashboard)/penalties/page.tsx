@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { AlertTriangle, Search, Calendar, User, Plus, Filter } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
+import { AlertTriangle, Search, Calendar, User, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -115,10 +114,7 @@ export default function PenaltiesPage() {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <AlertTriangle className="h-6 w-6" />
-          벌점 기록
-        </h1>
+        <h1 className="text-2xl font-bold">벌점 기록</h1>
         {isTeacher && (
           <Link href="/penalties/give">
             <Button variant="primary">
@@ -138,34 +134,42 @@ export default function PenaltiesPage() {
             placeholder="사유, 이름, 학번으로 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 bg-background-secondary border-border"
           />
         </div>
         <div className="flex gap-1 overflow-x-auto pb-1">
-          <Button
-            variant={filterCategory === null ? 'default' : 'ghost'}
-            size="sm"
+          <button
             onClick={() => setFilterCategory(null)}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors',
+              filterCategory === null
+                ? 'bg-accent text-white'
+                : 'bg-background-secondary hover:bg-background-secondary/80'
+            )}
           >
             전체
-          </Button>
+          </button>
           {categories.map((category) => (
-            <Button
+            <button
               key={category}
-              variant={filterCategory === category ? 'default' : 'ghost'}
-              size="sm"
               onClick={() => setFilterCategory(category)}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors',
+                filterCategory === category
+                  ? 'bg-accent text-white'
+                  : 'bg-background-secondary hover:bg-background-secondary/80'
+              )}
             >
               {category}
-            </Button>
+            </button>
           ))}
         </div>
       </div>
 
       {/* Stats for current user (if student) */}
       {!isTeacher && profile && (
-        <Card className="mb-6">
-          <CardContent className="flex items-center justify-between py-4">
+        <div className="rounded-lg border border-border bg-background-secondary p-4 mb-6">
+          <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-foreground-secondary">내 총 벌점</p>
               <p className="text-2xl font-bold">{profile.total_penalty || 0}점</p>
@@ -182,78 +186,97 @@ export default function PenaltiesPage() {
             >
               {(profile.total_penalty || 0) > 0 ? '+' : ''}{profile.total_penalty || 0}
             </Badge>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
+      {/* Table Headers */}
+      <div className="grid grid-cols-12 gap-4 px-4 py-2 text-sm text-foreground-secondary border-b border-border">
+        <div className="col-span-2">날짜</div>
+        <div className="col-span-5">사유</div>
+        <div className="col-span-3">대상</div>
+        <div className="col-span-2 text-right">점수</div>
+      </div>
+
       {/* Records */}
-      <div className="space-y-4">
-        {loading ? (
-          <Card>
-            <CardContent className="flex items-center justify-center py-12">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-            </CardContent>
-          </Card>
-        ) : filteredRecords.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 text-foreground-secondary">
-              <AlertTriangle className="h-12 w-12 mb-4 opacity-50" />
-              <p>벌점 기록이 없습니다</p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredRecords.map((record) => (
-            <Card key={record.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="flex items-center gap-1 text-sm text-foreground-secondary">
-                        <Calendar className="h-4 w-4" />
-                        {format(new Date(record.issued_date), 'M월 d일', { locale: ko })}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        </div>
+      ) : filteredRecords.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-foreground-secondary">
+          <AlertTriangle className="h-12 w-12 mb-4 opacity-50" />
+          <p>벌점 기록이 없습니다</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {filteredRecords.map((record) => (
+            <div
+              key={record.id}
+              className="grid grid-cols-12 gap-4 px-4 py-3 hover:bg-background-secondary/50 transition-colors"
+            >
+              {/* Date */}
+              <div className="col-span-2">
+                <p className="text-sm font-medium">
+                  {format(new Date(record.issued_date), 'M/d', { locale: ko })}
+                </p>
+                <p className="text-xs text-foreground-secondary">
+                  {record.issuer.name}
+                </p>
+              </div>
+
+              {/* Reason */}
+              <div className="col-span-5">
+                <p className="font-medium text-sm">
+                  {record.reason?.title || '(삭제된 사유)'}
+                </p>
+                {record.reason?.category && (
+                  <span className="text-xs text-foreground-secondary">
+                    {record.reason.category}
+                  </span>
+                )}
+                {record.description && (
+                  <p className="text-xs text-foreground-secondary mt-1">{record.description}</p>
+                )}
+              </div>
+
+              {/* Targets */}
+              <div className="col-span-3">
+                {record.targets.length === 0 ? (
+                  <p className="text-sm text-foreground-secondary">-</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {record.targets.slice(0, 3).map((target) => (
+                      <span key={target.id} className="text-xs bg-background-secondary px-2 py-0.5 rounded">
+                        {target.student_number?.slice(-4)} {target.name}
                       </span>
-                      <span className="flex items-center gap-1 text-sm text-foreground-secondary">
-                        <User className="h-4 w-4" />
-                        부과 교사: {record.issuer.name}
+                    ))}
+                    {record.targets.length > 3 && (
+                      <span className="text-xs text-foreground-secondary">
+                        +{record.targets.length - 3}
                       </span>
-                      {record.reason?.category && (
-                        <Badge variant="secondary" className="text-xs">
-                          {record.reason.category}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="font-medium">{record.reason?.title || '(삭제된 사유)'}</p>
-                    {record.description && (
-                      <p className="text-sm text-foreground-secondary">{record.description}</p>
-                    )}
-                    {record.targets.length === 0 ? (
-                      <p className="text-sm text-foreground-secondary">(적용된 대상 없음)</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {record.targets.map((target) => (
-                          <Badge key={target.id} variant="secondary" className="text-xs">
-                            {target.student_number} {target.name}
-                          </Badge>
-                        ))}
-                      </div>
                     )}
                   </div>
-                  <Badge
-                    className={cn(
-                      'ml-4 text-base',
-                      record.points < 0
-                        ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                        : 'bg-red-500/10 text-red-500 border-red-500/20'
-                    )}
-                  >
-                    {record.points > 0 ? '+' : ''}{record.points}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                )}
+              </div>
+
+              {/* Points */}
+              <div className="col-span-2 text-right">
+                <Badge
+                  className={cn(
+                    'text-sm',
+                    record.points < 0
+                      ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                      : 'bg-red-500/10 text-red-500 border-red-500/20'
+                  )}
+                >
+                  {record.points > 0 ? '+' : ''}{record.points}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Info */}
       <p className="text-xs text-foreground-secondary text-center mt-8">
