@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/types/database'
@@ -19,11 +19,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const initializedRef = useRef(false)
 
   const supabase = createClient()
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, accessToken?: string) => {
     try {
+      // Use direct fetch with access token for reliable profile loading
+      if (accessToken) {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?select=*&id=eq.${userId}`,
+          {
+            headers: {
+              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+        const data = await res.json()
+
+        if (Array.isArray(data) && data.length > 0) {
+          setProfile(data[0])
+          return
+        }
+      }
+
+      // Fallback to Supabase client
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -40,35 +62,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id)
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetchProfile(user.id, session?.access_token)
     }
   }
 
   useEffect(() => {
-    const getUser = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        setUser(user)
+    // Prevent double initialization in strict mode
+    if (initializedRef.current) return
+    initializedRef.current = true
 
-        if (user) {
-          await fetchProfile(user.id)
+    const initAuth = async () => {
+      try {
+        // Use getSession for initial load (reads from storage)
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (session?.user) {
+          setUser(session.user)
+          await fetchProfile(session.user.id, session.access_token)
         }
       } catch (err) {
-        console.error('Error getting user:', err)
+        console.error('Auth init error:', err)
       } finally {
         setLoading(false)
       }
     }
 
-    getUser()
+    initAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setUser(session?.user ?? null)
-
-        if (session?.user) {
-          await fetchProfile(session.user.id)
-        } else {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (session?.user) {
+            setUser(session.user)
+            await fetchProfile(session.user.id, session.access_token)
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null)
           setProfile(null)
         }
       }
