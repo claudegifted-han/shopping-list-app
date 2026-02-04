@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Users, Search, Download, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
+import { Users, Search, Download, ChevronLeft, ChevronRight, Eye, SlidersHorizontal } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,16 +16,21 @@ interface StudentWithStats extends Profile {
   study_location?: string | null
 }
 
+type SortField = 'student_number' | 'name' | 'total_penalty'
+type SortOrder = 'asc' | 'desc'
+
 const ITEMS_PER_PAGE = 20
 
 export default function StudentListPage() {
   const { profile } = useAuth()
   const [students, setStudents] = useState<StudentWithStats[]>([])
-  const [filteredStudents, setFilteredStudents] = useState<StudentWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedStudent, setSelectedStudent] = useState<StudentWithStats | null>(null)
+  const [sortField, setSortField] = useState<SortField>('student_number')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
+  const [showSortMenu, setShowSortMenu] = useState(false)
 
   const supabase = createClient()
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -36,10 +41,6 @@ export default function StudentListPage() {
       fetchStudents()
     }
   }, [isTeacher])
-
-  useEffect(() => {
-    filterStudents()
-  }, [searchQuery, students])
 
   const fetchStudents = async () => {
     setLoading(true)
@@ -69,7 +70,6 @@ export default function StudentListPage() {
         const studyApp = studyData?.find((s) => s.user_id === student.id)
         return {
           ...student,
-          total_penalty: 0, // TODO: Calculate from penalty records in Phase 3
           study_location: studyApp?.seat
             ? `${(studyApp.seat as unknown as { room_name: string; seat_number: string }).room_name} ${(studyApp.seat as unknown as { room_name: string; seat_number: string }).seat_number}`
             : null,
@@ -84,38 +84,55 @@ export default function StudentListPage() {
     }
   }
 
-  const filterStudents = () => {
-    if (!searchQuery.trim()) {
-      setFilteredStudents(students)
-      setCurrentPage(1)
-      return
+  // Filter and sort students
+  const filteredAndSortedStudents = useMemo(() => {
+    let result = [...students]
+
+    // Filter
+    if (searchQuery.trim() && searchQuery !== '*') {
+      const query = searchQuery.toLowerCase().trim()
+      result = result.filter(
+        (student) =>
+          student.name.toLowerCase().includes(query) ||
+          student.student_number?.toLowerCase().includes(query)
+      )
     }
 
-    if (searchQuery === '*') {
-      setFilteredStudents(students)
-      setCurrentPage(1)
-      return
-    }
+    // Sort
+    result.sort((a, b) => {
+      let comparison = 0
 
-    const query = searchQuery.toLowerCase().trim()
-    const filtered = students.filter(
-      (student) =>
-        student.name.toLowerCase().includes(query) ||
-        student.student_number?.toLowerCase().includes(query)
-    )
-    setFilteredStudents(filtered)
+      switch (sortField) {
+        case 'student_number':
+          comparison = (a.student_number || '').localeCompare(b.student_number || '')
+          break
+        case 'name':
+          comparison = a.name.localeCompare(b.name)
+          break
+        case 'total_penalty':
+          comparison = (a.total_penalty || 0) - (b.total_penalty || 0)
+          break
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
+
+    return result
+  }, [students, searchQuery, sortField, sortOrder])
+
+  // Reset page when filter changes
+  useEffect(() => {
     setCurrentPage(1)
-  }
+  }, [searchQuery, sortField, sortOrder])
 
   const handleExport = () => {
-    if (filteredStudents.length === 0) {
+    if (filteredAndSortedStudents.length === 0) {
       alert('내보낼 데이터가 없습니다.')
       return
     }
 
-    // Create CSV content
     const headers = ['학번', '이름', '총 벌점', '자습 장소']
-    const rows = filteredStudents.map((s) => [
+    const rows = filteredAndSortedStudents.map((s) => [
       s.student_number || '',
       s.name,
       s.total_penalty?.toString() || '0',
@@ -127,7 +144,6 @@ export default function StudentListPage() {
       ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
     ].join('\n')
 
-    // Create blob and download
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -140,8 +156,8 @@ export default function StudentListPage() {
   }
 
   // Pagination
-  const totalPages = Math.ceil(filteredStudents.length / ITEMS_PER_PAGE)
-  const paginatedStudents = filteredStudents.slice(
+  const totalPages = Math.ceil(filteredAndSortedStudents.length / ITEMS_PER_PAGE)
+  const paginatedStudents = filteredAndSortedStudents.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   )
@@ -162,15 +178,15 @@ export default function StudentListPage() {
           <Users className="h-6 w-6" />
           학생 목록
         </h1>
-        <Button variant="default" onClick={handleExport} disabled={filteredStudents.length === 0}>
+        <Button variant="default" onClick={handleExport} disabled={filteredAndSortedStudents.length === 0}>
           <Download className="h-4 w-4 mr-2" />
           내보내기
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative">
+      {/* Search and Sort */}
+      <div className="flex gap-2 mb-6">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-secondary" />
           <Input
             type="search"
@@ -180,25 +196,99 @@ export default function StudentListPage() {
             className="pl-9"
           />
         </div>
-        <p className="text-xs text-foreground-secondary mt-2">
-          {filteredStudents.length}명의 학생
-        </p>
+        <div className="relative">
+          <Button
+            variant="default"
+            onClick={() => setShowSortMenu(!showSortMenu)}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </Button>
+
+          {/* Sort Menu */}
+          {showSortMenu && (
+            <div className="absolute right-0 top-full mt-2 w-48 bg-background border border-border rounded-lg shadow-lg z-10 p-3">
+              <p className="text-sm font-medium mb-2">정렬 기준</p>
+              <div className="space-y-1 mb-3">
+                {[
+                  { value: 'student_number', label: '학번' },
+                  { value: 'name', label: '이름' },
+                  { value: 'total_penalty', label: '총 벌점' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setSortField(option.value as SortField)}
+                    className={`w-full text-left px-2 py-1 rounded text-sm ${
+                      sortField === option.value
+                        ? 'bg-accent text-white'
+                        : 'hover:bg-background-secondary'
+                    }`}
+                  >
+                    {sortField === option.value && '• '}
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-sm font-medium mb-2">정렬 순서</p>
+              <div className="space-y-1">
+                {[
+                  { value: 'asc', label: '오름차순' },
+                  { value: 'desc', label: '내림차순' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setSortOrder(option.value as SortOrder)}
+                    className={`w-full text-left px-2 py-1 rounded text-sm ${
+                      sortOrder === option.value
+                        ? 'bg-accent text-white'
+                        : 'hover:bg-background-secondary'
+                    }`}
+                  >
+                    {sortOrder === option.value && '• '}
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Click outside to close sort menu */}
+      {showSortMenu && (
+        <div
+          className="fixed inset-0 z-0"
+          onClick={() => setShowSortMenu(false)}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Table */}
         <div className="lg:col-span-2">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">학생 목록</CardTitle>
-              <CardDescription>
-                {format(new Date(), 'M월 d일', { locale: ko })} 기준
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">학생 목록</CardTitle>
+                  <CardDescription>
+                    {format(new Date(), 'M월 d일', { locale: ko })} 기준
+                  </CardDescription>
+                </div>
+                <p className="text-sm text-foreground-secondary">
+                  {filteredAndSortedStudents.length}명
+                </p>
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                </div>
+              ) : !searchQuery.trim() ? (
+                <div className="flex flex-col items-center justify-center py-12 text-foreground-secondary">
+                  <Search className="h-12 w-12 mb-4 opacity-50" />
+                  <p>검색어를 입력하세요.</p>
+                  <p className="text-sm">(*를 입력해 모두 선택)</p>
                 </div>
               ) : paginatedStudents.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-foreground-secondary">
@@ -222,7 +312,8 @@ export default function StudentListPage() {
                         {paginatedStudents.map((student) => (
                           <tr
                             key={student.id}
-                            className="border-b border-border last:border-0 hover:bg-background-secondary/50"
+                            className="border-b border-border last:border-0 hover:bg-background-secondary/50 cursor-pointer"
+                            onClick={() => setSelectedStudent(student)}
                           >
                             <td className="py-3 px-2">
                               <div>
@@ -256,7 +347,10 @@ export default function StudentListPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setSelectedStudent(student)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedStudent(student)
+                                }}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -271,7 +365,7 @@ export default function StudentListPage() {
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
                       <p className="text-sm text-foreground-secondary">
-                        {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredStudents.length)} / {filteredStudents.length}
+                        {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedStudents.length)} / {filteredAndSortedStudents.length}
                       </p>
                       <div className="flex gap-1">
                         <Button
