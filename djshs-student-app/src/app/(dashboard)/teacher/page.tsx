@@ -18,9 +18,6 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/auth-provider'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import type { Meal, MealType, OutingType } from '@/types/database'
 
 const outingTypeLabels: Record<OutingType, string> = {
@@ -32,12 +29,12 @@ const outingTypeLabels: Record<OutingType, string> = {
 }
 
 const quickLinks = [
-  { title: '외출 신청', href: '/outing', icon: DoorOpen, color: 'bg-blue-500' },
-  { title: '학생 조회', href: '/teacher/students', icon: Users, color: 'bg-green-500' },
-  { title: '벌점 부여', href: '/penalties/give', icon: AlertTriangle, color: 'bg-red-500' },
-  { title: '벌점 기록', href: '/penalties', icon: ClipboardList, color: 'bg-orange-500' },
-  { title: '자습 신청', href: '/study', icon: BookOpen, color: 'bg-purple-500' },
-  { title: '도움말', href: '/help', icon: HelpCircle, color: 'bg-gray-500' },
+  { title: '외출 신청', href: '/outing', icon: DoorOpen },
+  { title: '학생 조회', href: '/teacher/students', icon: Users },
+  { title: '벌점 부여', href: '/penalties/give', icon: AlertTriangle },
+  { title: '벌점 기록', href: '/penalties', icon: ClipboardList },
+  { title: '자습 신청', href: '/study', icon: BookOpen },
+  { title: '도움말', href: '/help', icon: HelpCircle },
 ]
 
 const mealTypeLabels: Record<MealType, string> = {
@@ -311,177 +308,126 @@ export default function TeacherHomePage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">교사 홈</h1>
-        <p className="text-foreground-secondary">
-          {format(today, 'yyyy년 M월 d일 EEEE', { locale: ko })}
-        </p>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="grid gap-6 lg:grid-cols-5">
+        {/* Main Content - Left Column */}
+        <div className="lg:col-span-3 space-y-6">
           {/* Quick Links */}
-          <div>
-            <h2 className="text-lg font-semibold mb-4">빠른 바로가기</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {quickLinks.map((link) => {
-                const Icon = link.icon
-                return (
-                  <Link key={link.href} href={link.href}>
-                    <Card className="h-full hover:border-border-accent transition-colors cursor-pointer">
-                      <CardContent className="flex flex-col items-center justify-center py-6">
-                        <div className={`${link.color} p-3 rounded-lg mb-3`}>
-                          <Icon className="h-6 w-6 text-white" />
-                        </div>
-                        <span className="text-sm font-medium">{link.title}</span>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                )
-              })}
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            {quickLinks.map((link) => {
+              const Icon = link.icon
+              return (
+                <Link key={link.href} href={link.href}>
+                  <div className="flex flex-col items-center justify-center py-6 px-4 rounded-lg border border-border bg-background-secondary hover:border-accent transition-colors cursor-pointer">
+                    <Icon className="h-6 w-6 mb-3 text-foreground-secondary" />
+                    <span className="text-sm font-medium">{link.title}</span>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
 
           {/* Notifications */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                알림
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-foreground-secondary text-center py-4">
-                알림이 없습니다
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Next Meal */}
-          {nextMeal && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Utensils className="h-5 w-5" />
-                    다음 급식 ({mealTypeLabels[nextMeal.type]})
-                  </CardTitle>
-                  <Link href="/meals">
-                    <Button variant="ghost" size="sm">
-                      전체 급식 보기
-                    </Button>
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                  </div>
-                ) : nextMeal.meal?.menu ? (
-                  <p className="text-sm text-foreground-secondary">
-                    {nextMeal.meal.menu}
-                  </p>
-                ) : (
-                  <p className="text-sm text-foreground-secondary">
-                    급식 정보가 없습니다
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          <div className="rounded-lg border border-border bg-background-secondary p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Bell className="h-5 w-5" />
+              <span className="font-medium">알림</span>
+            </div>
+            <p className="text-sm text-foreground-secondary text-center py-4">
+              알림이 없습니다.
+            </p>
+          </div>
         </div>
 
-        {/* Sidebar - Export Panel */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">
-                  내보내기
-                </CardTitle>
-                <Button variant="ghost" size="sm" onClick={fetchExportStats}>
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
+        {/* Right Column */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Export Panel */}
+          <div className="rounded-lg border border-border bg-background-secondary p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                <span className="font-medium">내보내기(기준: {format(today, 'M월 d일', { locale: ko })})</span>
               </div>
-              <p className="text-xs text-foreground-secondary">
-                기준일: {format(today, 'yyyy년 M월 d일', { locale: ko })}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                variant="default"
-                size="sm"
-                className="w-full justify-between"
+              <button
+                onClick={fetchExportStats}
+                className="text-sm text-accent hover:underline"
+              >
+                새로고침
+              </button>
+            </div>
+            <div className="space-y-2">
+              <button
                 onClick={() => handleExport('study_today')}
                 disabled={exporting === 'study_today'}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-border bg-background hover:border-accent transition-colors disabled:opacity-50"
               >
-                <span className="flex items-center">
-                  <Download className="h-4 w-4 mr-2" />
-                  오늘 자습 신청
-                </span>
-                <Badge variant="secondary" className="ml-2">{exportStats.studyToday}</Badge>
-              </Button>
+                <RefreshCw className={`h-4 w-4 ${exporting === 'study_today' ? 'animate-spin' : ''}`} />
+                <span className="text-sm">오늘 자습 신청 내보내기</span>
+              </button>
 
-              <Button
-                variant="default"
-                size="sm"
-                className="w-full justify-between"
+              <button
                 onClick={() => handleExport('dorm_today')}
                 disabled={exporting === 'dorm_today'}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-border bg-background hover:border-accent transition-colors disabled:opacity-50"
               >
-                <span className="flex items-center">
-                  <Download className="h-4 w-4 mr-2" />
-                  오늘 기숙사 신청
-                </span>
-                <Badge variant="secondary" className="ml-2">{exportStats.dormToday}</Badge>
-              </Button>
+                <Download className={`h-4 w-4 ${exporting === 'dorm_today' ? 'animate-spin' : ''}`} />
+                <span className="text-sm">오늘 기숙사 신청 내보내기</span>
+              </button>
 
-              <Button
-                variant="default"
-                size="sm"
-                className="w-full justify-between"
+              <button
                 onClick={() => handleExport('dorm_tomorrow')}
                 disabled={exporting === 'dorm_tomorrow'}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-border bg-background hover:border-accent transition-colors disabled:opacity-50"
               >
-                <span className="flex items-center">
-                  <Download className="h-4 w-4 mr-2" />
-                  내일 기숙사 신청
-                </span>
-                <Badge variant="secondary" className="ml-2">{exportStats.dormTomorrow}</Badge>
-              </Button>
+                <Download className={`h-4 w-4 ${exporting === 'dorm_tomorrow' ? 'animate-spin' : ''}`} />
+                <span className="text-sm">내일 기숙사 신청 내보내기</span>
+              </button>
 
-              <Button
-                variant="default"
-                size="sm"
-                className="w-full justify-between"
+              <button
                 onClick={() => handleExport('outing_today')}
                 disabled={exporting === 'outing_today'}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-accent bg-accent/10 hover:bg-accent/20 transition-colors disabled:opacity-50"
               >
-                <span className="flex items-center">
-                  <Download className="h-4 w-4 mr-2" />
-                  오늘 외출 신청
-                </span>
-                <Badge variant="secondary" className="ml-2">{exportStats.outingToday}</Badge>
-              </Button>
+                <Download className={`h-4 w-4 text-accent ${exporting === 'outing_today' ? 'animate-spin' : ''}`} />
+                <span className="text-sm text-accent">오늘 외출 신청 내보내기</span>
+              </button>
 
-              <Button
-                variant="default"
-                size="sm"
-                className="w-full justify-between"
+              <button
                 onClick={() => handleExport('penalties_all')}
                 disabled={exporting === 'penalties_all'}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-border bg-background hover:border-accent transition-colors disabled:opacity-50"
               >
-                <span className="flex items-center">
-                  <Download className="h-4 w-4 mr-2" />
-                  전체 벌점 기록
-                </span>
-              </Button>
-            </CardContent>
-          </Card>
+                <ClipboardList className={`h-4 w-4 ${exporting === 'penalties_all' ? 'animate-spin' : ''}`} />
+                <span className="text-sm">전체 벌점 기록 내보내기</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Next Meal */}
+          <div className="rounded-lg border border-border bg-background-secondary p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Utensils className="h-5 w-5" />
+              <span className="font-medium">다음 급식</span>
+            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+              </div>
+            ) : nextMeal?.meal?.menu ? (
+              <p className="text-sm text-foreground-secondary py-4">
+                {nextMeal.meal.menu}
+              </p>
+            ) : (
+              <p className="text-sm text-foreground-secondary text-center py-8">
+                없음
+              </p>
+            )}
+            <Link href="/meals">
+              <button className="w-full py-3 px-4 rounded-lg border border-border bg-background hover:border-accent transition-colors text-sm">
+                전체 급식 보기
+              </button>
+            </Link>
+          </div>
         </div>
       </div>
     </div>
