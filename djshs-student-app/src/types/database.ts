@@ -9,7 +9,8 @@ export type Json =
 export type UserRole = 'student' | 'teacher' | 'admin'
 export type MealType = 'breakfast' | 'lunch' | 'dinner'
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed'
-export type OutingType = 'outing' | 'special_room'
+export type OutingType = 'special_room' | 'general_outing' | 'general_overnight' | 'research_outing' | 'research_overnight'
+export type ShareType = 'private' | 'link' | 'public'
 export type DormitoryType = 'today' | 'tomorrow'
 export type NotificationType = 'penalty' | 'study' | 'outing' | 'system'
 
@@ -183,13 +184,15 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          title: string
-          description: string | null
           type: OutingType
+          location: string
+          location_category: string | null
+          reason: string | null
+          date: string
           start_time: string
           end_time: string
           status: ApplicationStatus
-          is_public: boolean
+          share_type: ShareType
           approved_by: string | null
           created_at: string
           updated_at: string
@@ -197,13 +200,15 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
-          title: string
-          description?: string | null
           type: OutingType
+          location: string
+          location_category?: string | null
+          reason?: string | null
+          date: string
           start_time: string
           end_time: string
           status?: ApplicationStatus
-          is_public?: boolean
+          share_type?: ShareType
           approved_by?: string | null
           created_at?: string
           updated_at?: string
@@ -211,13 +216,15 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
-          title?: string
-          description?: string | null
           type?: OutingType
+          location?: string
+          location_category?: string | null
+          reason?: string | null
+          date?: string
           start_time?: string
           end_time?: string
           status?: ApplicationStatus
-          is_public?: boolean
+          share_type?: ShareType
           approved_by?: string | null
           created_at?: string
           updated_at?: string
@@ -380,6 +387,7 @@ export interface Database {
       meal_type: MealType
       application_status: ApplicationStatus
       outing_type: OutingType
+      share_type: ShareType
       dormitory_type: DormitoryType
       notification_type: NotificationType
     }
