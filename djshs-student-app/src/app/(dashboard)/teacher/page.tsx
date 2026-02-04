@@ -21,7 +21,15 @@ import { useAuth } from '@/components/providers/auth-provider'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import type { Meal, MealType } from '@/types/database'
+import type { Meal, MealType, OutingType } from '@/types/database'
+
+const outingTypeLabels: Record<OutingType, string> = {
+  special_room: '특별실',
+  general_outing: '일반외출',
+  general_overnight: '일반외박',
+  research_outing: '연구외출',
+  research_overnight: '연구외박',
+}
 
 const quickLinks = [
   { title: '외출 신청', href: '/outing', icon: DoorOpen, color: 'bg-blue-500' },
@@ -112,8 +120,7 @@ export default function TeacherHomePage() {
     const { count: outingCount } = await supabase
       .from('outing_applications')
       .select('*', { count: 'exact', head: true })
-      .gte('start_time', `${todayStr}T00:00:00`)
-      .lte('start_time', `${todayStr}T23:59:59`)
+      .eq('date', todayStr)
       .in('status', ['pending', 'approved'])
 
     setExportStats({
@@ -216,18 +223,18 @@ export default function TeacherHomePage() {
             *,
             user:profiles!outing_applications_user_id_fkey (name, student_number)
           `)
-          .gte('start_time', `${todayStr}T00:00:00`)
-          .lte('start_time', `${todayStr}T23:59:59`)
+          .eq('date', todayStr)
           .in('status', ['pending', 'approved'])
           .order('start_time')
 
         if (data && data.length > 0) {
-          const headers = ['학번', '이름', '유형', '제목', '시작시간', '종료시간', '상태']
+          const headers = ['학번', '이름', '유형', '장소', '사유', '시작시간', '종료시간', '상태']
           const rows = data.map((app) => [
             (app.user as { student_number: string }).student_number || '',
             (app.user as { name: string }).name,
-            app.type === 'outing' ? '외출' : '특별실',
-            app.title,
+            outingTypeLabels[app.type as OutingType] || app.type,
+            app.location || '',
+            app.reason || '',
             format(new Date(app.start_time), 'HH:mm'),
             format(new Date(app.end_time), 'HH:mm'),
             app.status === 'approved' ? '승인됨' : '대기중',
@@ -357,10 +364,17 @@ export default function TeacherHomePage() {
           {nextMeal && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <Utensils className="h-5 w-5" />
-                  다음 급식 ({mealTypeLabels[nextMeal.type]})
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Utensils className="h-5 w-5" />
+                    다음 급식 ({mealTypeLabels[nextMeal.type]})
+                  </CardTitle>
+                  <Link href="/meals">
+                    <Button variant="ghost" size="sm">
+                      전체 급식 보기
+                    </Button>
+                  </Link>
+                </div>
               </CardHeader>
               <CardContent>
                 {loading ? (
