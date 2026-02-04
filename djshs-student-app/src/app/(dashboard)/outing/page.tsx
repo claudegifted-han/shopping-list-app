@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { format } from 'date-fns'
+import { useState, useEffect, useRef } from 'react'
+import { format, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import {
   Search, Plus, Clock, CheckCircle, Globe, X, Check,
-  ChevronLeft, ChevronRight, Calendar as CalendarIcon
+  ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,13 +36,19 @@ const outingTypes: { value: OutingType; label: string }[] = [
   { value: 'research_overnight', label: '연구외박' },
 ]
 
-const locationCategories = [
-  { id: 'favorites', label: '즐겨찾기' },
-  { id: 'classroom', label: '교실' },
-  { id: 'dasan', label: '다산관' },
-  { id: 'ilsin', label: '일신관' },
-  { id: 'tamui', label: '탐의관' },
-  { id: 'other', label: '기타' },
+interface LocationCategory {
+  id: string
+  label: string
+  items?: string[]
+}
+
+const locationCategories: LocationCategory[] = [
+  { id: 'favorites', label: '즐겨찾기', items: [] },
+  { id: 'classroom', label: '교실', items: ['1학년 1반', '1학년 2반', '1학년 3반', '2학년 1반', '2학년 2반', '2학년 3반', '3학년 1반', '3학년 2반', '3학년 3반'] },
+  { id: 'dasan', label: '다산관', items: ['다산1', '다산2', '다산3', '다산4', '세미나실'] },
+  { id: 'ilsin', label: '일신관', items: ['과학실1', '과학실2', '컴퓨터실', '음악실', '미술실'] },
+  { id: 'tamui', label: '탐의관', items: ['탐의1', '탐의2', '탐의3', '대강당'] },
+  { id: 'other', label: '기타', items: ['도서관', '체육관', '운동장'] },
 ]
 
 const shareTypes: { value: ShareType; label: string }[] = [
@@ -88,9 +94,11 @@ export default function OutingPage() {
   // Form state
   const [formType, setFormType] = useState<OutingType>('special_room')
   const [formLocation, setFormLocation] = useState('')
-  const [formLocationCategory, setFormLocationCategory] = useState<string | null>(null)
+  const [formLocationSearch, setFormLocationSearch] = useState('')
   const [formReason, setFormReason] = useState('')
   const [formDate, setFormDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [formEndDate, setFormEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [formIsLongTerm, setFormIsLongTerm] = useState(false)
   const [formStartTime, setFormStartTime] = useState('19:10')
   const [formEndTime, setFormEndTime] = useState('23:30')
   const [formShareType, setFormShareType] = useState<ShareType>('link')
@@ -98,12 +106,41 @@ export default function OutingPage() {
   // Dropdown states
   const [showTypeDropdown, setShowTypeDropdown] = useState(false)
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [showShareDropdown, setShowShareDropdown] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(new Date())
+  const [selectingEndDate, setSelectingEndDate] = useState(false)
+
+  // Refs for click outside
+  const typeDropdownRef = useRef<HTMLDivElement>(null)
+  const locationDropdownRef = useRef<HTMLDivElement>(null)
+  const shareDropdownRef = useRef<HTMLDivElement>(null)
 
   const supabase = createClient()
   const isTeacher = profile?.role === 'teacher' || profile?.role === 'admin'
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      // Skip if clicking inside a dropdown menu
+      if (target.closest('[data-dropdown-menu]')) return
+
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
+        setShowTypeDropdown(false)
+      }
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(e.target as Node)) {
+        setShowLocationDropdown(false)
+        setExpandedCategory(null)
+      }
+      if (shareDropdownRef.current && !shareDropdownRef.current.contains(e.target as Node)) {
+        setShowShareDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     fetchApplications()
@@ -161,18 +198,16 @@ export default function OutingPage() {
         user_id: user.id,
         type: formType,
         location: formLocation.trim(),
-        location_category: formLocationCategory,
         reason: formReason.trim() || null,
         date: formDate,
         start_time: `${formDate}T${formStartTime}:00`,
-        end_time: `${formDate}T${formEndTime}:00`,
+        end_time: `${formIsLongTerm ? formEndDate : formDate}T${formEndTime}:00`,
         share_type: formShareType,
         status: 'pending',
       })
 
       if (error) throw error
 
-      // Reset form
       resetForm()
       setShowForm(false)
       setActiveTab('my')
@@ -188,9 +223,11 @@ export default function OutingPage() {
   const resetForm = () => {
     setFormType('special_room')
     setFormLocation('')
-    setFormLocationCategory(null)
+    setFormLocationSearch('')
     setFormReason('')
     setFormDate(format(new Date(), 'yyyy-MM-dd'))
+    setFormEndDate(format(new Date(), 'yyyy-MM-dd'))
+    setFormIsLongTerm(false)
     setFormStartTime('19:10')
     setFormEndTime('23:30')
     setFormShareType('link')
@@ -256,12 +293,10 @@ export default function OutingPage() {
     const lastDay = new Date(year, month + 1, 0)
     const days: (number | null)[] = []
 
-    // Add empty days for padding
     for (let i = 0; i < firstDay.getDay(); i++) {
       days.push(null)
     }
 
-    // Add actual days
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push(i)
     }
@@ -271,9 +306,307 @@ export default function OutingPage() {
 
   const selectDate = (day: number) => {
     const newDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
-    setFormDate(format(newDate, 'yyyy-MM-dd'))
+    const dateStr = format(newDate, 'yyyy-MM-dd')
+
+    if (formIsLongTerm && selectingEndDate) {
+      setFormEndDate(dateStr)
+    } else {
+      setFormDate(dateStr)
+      if (formIsLongTerm) {
+        setSelectingEndDate(true)
+        return
+      }
+    }
     setShowCalendar(false)
+    setSelectingEndDate(false)
   }
+
+  const selectLocation = (location: string) => {
+    setFormLocation(location)
+    setShowLocationDropdown(false)
+    setExpandedCategory(null)
+  }
+
+  // Form Panel Component
+  const FormPanel = ({ isMobile = false }: { isMobile?: boolean }) => (
+    <div className={cn("space-y-4", isMobile && "pb-4")}>
+      {/* Type */}
+      <div ref={!isMobile ? typeDropdownRef : undefined}>
+        <label className="block text-sm text-foreground-secondary mb-2">항목</label>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
+          >
+            <span>{outingTypes.find(t => t.value === formType)?.label}</span>
+            <ChevronDown className={cn("h-4 w-4 transition-transform", showTypeDropdown && "rotate-180")} />
+          </button>
+          {showTypeDropdown && (
+            <div data-dropdown-menu className="absolute z-10 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden">
+              {outingTypes.map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => { setFormType(type.value); setShowTypeDropdown(false); }}
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-sm hover:bg-background-secondary",
+                    formType === type.value && "bg-accent/10 text-accent"
+                  )}
+                >
+                  {formType === type.value && <Check className="inline h-4 w-4 mr-2" />}
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Location */}
+      <div ref={!isMobile ? locationDropdownRef : undefined}>
+        <label className="block text-sm text-foreground-secondary mb-2">장소</label>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowLocationDropdown(!showLocationDropdown)}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
+          >
+            <span className={formLocation ? '' : 'text-foreground-secondary'}>
+              {formLocation || '장소 선택...'}
+            </span>
+            <ChevronDown className={cn("h-4 w-4 transition-transform", showLocationDropdown && "rotate-180")} />
+          </button>
+          {showLocationDropdown && (
+            <div data-dropdown-menu className="absolute z-10 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+              {/* Search/Direct input */}
+              <div className="p-2 border-b border-border">
+                <Input
+                  placeholder="검색/직접 입력"
+                  value={formLocationSearch}
+                  onChange={(e) => {
+                    setFormLocationSearch(e.target.value)
+                    setFormLocation(e.target.value)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && formLocationSearch) {
+                      selectLocation(formLocationSearch)
+                    }
+                  }}
+                  className="text-sm"
+                />
+              </div>
+              {/* Categories */}
+              {locationCategories.map((cat) => (
+                <div key={cat.id}>
+                  <button
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (cat.items && cat.items.length > 0) {
+                        setExpandedCategory(expandedCategory === cat.id ? null : cat.id)
+                      } else {
+                        selectLocation(cat.label)
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-background-secondary flex items-center justify-between"
+                  >
+                    <span>{cat.label}</span>
+                    {cat.items && cat.items.length > 0 && (
+                      <ChevronRight className={cn("h-4 w-4 transition-transform", expandedCategory === cat.id && "rotate-90")} />
+                    )}
+                  </button>
+                  {expandedCategory === cat.id && cat.items && (
+                    <div className="bg-background-secondary">
+                      {cat.items.map((item) => (
+                        <button
+                          key={item}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            selectLocation(item)
+                          }}
+                          className="w-full px-6 py-2 text-left text-sm hover:bg-accent/10"
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Reason */}
+      <div>
+        <label className="block text-sm text-foreground-secondary mb-2">사유</label>
+        <Input
+          value={formReason}
+          onChange={(e) => setFormReason(e.target.value)}
+          placeholder=""
+        />
+      </div>
+
+      {/* Long Term Checkbox */}
+      <div
+        className="flex items-center gap-2 cursor-pointer"
+        onClick={() => {
+          setFormIsLongTerm(!formIsLongTerm)
+          if (!formIsLongTerm) {
+            setFormEndDate(format(addDays(new Date(formDate), 1), 'yyyy-MM-dd'))
+          }
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={formIsLongTerm}
+          onChange={() => {}}
+          className="h-4 w-4 rounded border-border"
+        />
+        <span className="text-sm">장기간</span>
+      </div>
+
+      {/* Date */}
+      <div>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => { setShowCalendar(!showCalendar); setSelectingEndDate(false); }}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
+          >
+            <CalendarIcon className="h-4 w-4" />
+            {formIsLongTerm
+              ? `${format(new Date(formDate), 'yyyy. M. d.')} ~ ${format(new Date(formEndDate), 'yyyy. M. d.')}`
+              : format(new Date(formDate), 'yyyy. M. d.')
+            }
+          </button>
+          {showCalendar && (
+            <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg p-4">
+              {formIsLongTerm && (
+                <div className="text-center text-sm mb-2 text-foreground-secondary">
+                  {selectingEndDate ? '종료일 선택' : '시작일 선택'}
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-4">
+                <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-sm font-medium">
+                  {format(calendarMonth, 'yyyy년 M월', { locale: ko })}
+                </span>
+                <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-7 gap-1 text-center text-xs">
+                {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
+                  <div key={d} className="py-1 text-foreground-secondary">{d}</div>
+                ))}
+                {getDaysInMonth(calendarMonth).map((day, i) => {
+                  const dateStr = day ? format(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day), 'yyyy-MM-dd') : ''
+                  const isStartDate = dateStr === formDate
+                  const isEndDate = formIsLongTerm && dateStr === formEndDate
+                  const isInRange = formIsLongTerm && day && dateStr > formDate && dateStr < formEndDate
+
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => day && selectDate(day)}
+                      disabled={!day}
+                      className={cn(
+                        "py-1 rounded text-sm",
+                        day && "hover:bg-accent/20",
+                        isStartDate && "bg-accent text-white",
+                        isEndDate && "bg-accent text-white",
+                        isInRange && "bg-accent/20"
+                      )}
+                    >
+                      {day}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button size="sm" variant="ghost" onClick={() => { setShowCalendar(false); setSelectingEndDate(false); }}>
+                  닫기
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Time */}
+      <div className="flex items-center gap-2">
+        <Input
+          type="time"
+          value={formStartTime}
+          onChange={(e) => setFormStartTime(e.target.value)}
+          className="flex-1"
+        />
+        <span className="text-foreground-secondary">~</span>
+        <Input
+          type="time"
+          value={formEndTime}
+          onChange={(e) => setFormEndTime(e.target.value)}
+          className="flex-1"
+        />
+      </div>
+
+      {/* Share Type */}
+      <div ref={!isMobile ? shareDropdownRef : undefined}>
+        <label className="block text-sm text-foreground-secondary mb-2">공유</label>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowShareDropdown(!showShareDropdown)}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
+          >
+            <span>{shareTypes.find(s => s.value === formShareType)?.label}</span>
+            <ChevronDown className={cn("h-4 w-4 transition-transform", showShareDropdown && "rotate-180")} />
+          </button>
+          {showShareDropdown && (
+            <div data-dropdown-menu className="absolute z-10 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden">
+              {shareTypes.map((share) => (
+                <button
+                  key={share.value}
+                  onClick={() => { setFormShareType(share.value); setShowShareDropdown(false); }}
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-sm hover:bg-background-secondary",
+                    formShareType === share.value && "bg-accent/10 text-accent"
+                  )}
+                >
+                  {formShareType === share.value && <Check className="inline h-4 w-4 mr-2" />}
+                  {share.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Buttons */}
+      <div className="flex gap-2 pt-4">
+        <Button
+          variant="ghost"
+          className="flex-1 bg-red-500/10 text-red-500 hover:bg-red-500/20"
+          onClick={() => setShowForm(false)}
+        >
+          취소
+        </Button>
+        <Button
+          variant="default"
+          className="flex-1"
+          onClick={handleSubmit}
+          disabled={processing}
+        >
+          {processing ? '신청 중...' : '신청'}
+        </Button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="h-full flex">
@@ -369,215 +702,8 @@ export default function OutingPage() {
       {/* Right Panel - Form or Detail */}
       <div className="w-80 border-l border-border flex-shrink-0 hidden lg:block">
         {showForm ? (
-          /* New Application Form */
-          <div className="p-4 space-y-4">
-            {/* Type */}
-            <div>
-              <label className="block text-sm text-foreground-secondary mb-2">항목</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
-                >
-                  <span>{outingTypes.find(t => t.value === formType)?.label}</span>
-                  <ChevronRight className={cn("h-4 w-4 transition-transform", showTypeDropdown && "rotate-90")} />
-                </button>
-                {showTypeDropdown && (
-                  <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden">
-                    {outingTypes.map((type) => (
-                      <button
-                        key={type.value}
-                        onClick={() => { setFormType(type.value); setShowTypeDropdown(false); }}
-                        className={cn(
-                          "w-full px-3 py-2 text-left text-sm hover:bg-background-secondary",
-                          formType === type.value && "bg-accent/10 text-accent"
-                        )}
-                      >
-                        {formType === type.value && <Check className="inline h-4 w-4 mr-2" />}
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Location */}
-            <div>
-              <label className="block text-sm text-foreground-secondary mb-2">장소</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowLocationDropdown(!showLocationDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
-                >
-                  <span className={formLocation ? '' : 'text-foreground-secondary'}>
-                    {formLocation || '장소 선택...'}
-                  </span>
-                  <ChevronRight className={cn("h-4 w-4 transition-transform", showLocationDropdown && "rotate-90")} />
-                </button>
-                {showLocationDropdown && (
-                  <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden">
-                    <div className="p-2">
-                      <Input
-                        placeholder="검색/직접 입력"
-                        value={formLocation}
-                        onChange={(e) => setFormLocation(e.target.value)}
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="border-t border-border">
-                      {locationCategories.map((cat) => (
-                        <button
-                          key={cat.id}
-                          onClick={() => {
-                            setFormLocationCategory(cat.id);
-                            setFormLocation(cat.label);
-                            setShowLocationDropdown(false);
-                          }}
-                          className="w-full px-3 py-2 text-left text-sm hover:bg-background-secondary flex items-center justify-between"
-                        >
-                          {cat.label}
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Reason */}
-            <div>
-              <label className="block text-sm text-foreground-secondary mb-2">사유</label>
-              <Input
-                value={formReason}
-                onChange={(e) => setFormReason(e.target.value)}
-                placeholder=""
-              />
-            </div>
-
-            {/* Date */}
-            <div>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowCalendar(!showCalendar)}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  {format(new Date(formDate), 'yyyy. M. d.')}
-                </button>
-                {showCalendar && (
-                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))}>
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <span className="text-sm font-medium">
-                        {format(calendarMonth, 'yyyy년 M월', { locale: ko })}
-                      </span>
-                      <button onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))}>
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                      {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
-                        <div key={d} className="py-1 text-foreground-secondary">{d}</div>
-                      ))}
-                      {getDaysInMonth(calendarMonth).map((day, i) => (
-                        <button
-                          key={i}
-                          onClick={() => day && selectDate(day)}
-                          disabled={!day}
-                          className={cn(
-                            "py-1 rounded text-sm",
-                            day && "hover:bg-accent/20",
-                            day && format(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day), 'yyyy-MM-dd') === formDate && "bg-accent text-white"
-                          )}
-                        >
-                          {day}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                      <Button size="sm" variant="ghost" onClick={() => setShowCalendar(false)}>
-                        닫기
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Time */}
-            <div className="flex items-center gap-2">
-              <Input
-                type="time"
-                value={formStartTime}
-                onChange={(e) => setFormStartTime(e.target.value)}
-                className="flex-1"
-              />
-              <span className="text-foreground-secondary">~</span>
-              <Input
-                type="time"
-                value={formEndTime}
-                onChange={(e) => setFormEndTime(e.target.value)}
-                className="flex-1"
-              />
-            </div>
-
-            {/* Share Type */}
-            <div>
-              <label className="block text-sm text-foreground-secondary mb-2">공유</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowShareDropdown(!showShareDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
-                >
-                  <span>{shareTypes.find(s => s.value === formShareType)?.label}</span>
-                  <ChevronRight className={cn("h-4 w-4 transition-transform", showShareDropdown && "rotate-90")} />
-                </button>
-                {showShareDropdown && (
-                  <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-lg overflow-hidden">
-                    {shareTypes.map((share) => (
-                      <button
-                        key={share.value}
-                        onClick={() => { setFormShareType(share.value); setShowShareDropdown(false); }}
-                        className={cn(
-                          "w-full px-3 py-2 text-left text-sm hover:bg-background-secondary",
-                          formShareType === share.value && "bg-accent/10 text-accent"
-                        )}
-                      >
-                        {formShareType === share.value && <Check className="inline h-4 w-4 mr-2" />}
-                        {share.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-2 pt-4">
-              <Button
-                variant="ghost"
-                className="flex-1 bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                onClick={() => setShowForm(false)}
-              >
-                취소
-              </Button>
-              <Button
-                variant="default"
-                className="flex-1"
-                onClick={handleSubmit}
-                disabled={processing}
-              >
-                {processing ? '신청 중...' : '신청'}
-              </Button>
-            </div>
+          <div className="p-4">
+            <FormPanel />
           </div>
         ) : selectedApp ? (
           /* Detail View */
@@ -674,101 +800,7 @@ export default function OutingPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            {/* Mobile form content - same as desktop */}
-            <div className="space-y-4">
-              {/* Type */}
-              <div>
-                <label className="block text-sm text-foreground-secondary mb-2">항목</label>
-                <select
-                  value={formType}
-                  onChange={(e) => setFormType(e.target.value as OutingType)}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
-                >
-                  {outingTypes.map((type) => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="block text-sm text-foreground-secondary mb-2">장소</label>
-                <Input
-                  value={formLocation}
-                  onChange={(e) => setFormLocation(e.target.value)}
-                  placeholder="장소 선택..."
-                />
-              </div>
-
-              {/* Reason */}
-              <div>
-                <label className="block text-sm text-foreground-secondary mb-2">사유</label>
-                <Input
-                  value={formReason}
-                  onChange={(e) => setFormReason(e.target.value)}
-                />
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm text-foreground-secondary mb-2">날짜</label>
-                <Input
-                  type="date"
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                />
-              </div>
-
-              {/* Time */}
-              <div className="flex items-center gap-2">
-                <Input
-                  type="time"
-                  value={formStartTime}
-                  onChange={(e) => setFormStartTime(e.target.value)}
-                  className="flex-1"
-                />
-                <span>~</span>
-                <Input
-                  type="time"
-                  value={formEndTime}
-                  onChange={(e) => setFormEndTime(e.target.value)}
-                  className="flex-1"
-                />
-              </div>
-
-              {/* Share */}
-              <div>
-                <label className="block text-sm text-foreground-secondary mb-2">공유</label>
-                <select
-                  value={formShareType}
-                  onChange={(e) => setFormShareType(e.target.value as ShareType)}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background-secondary text-sm"
-                >
-                  {shareTypes.map((share) => (
-                    <option key={share.value} value={share.value}>{share.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex gap-2 pt-4">
-                <Button
-                  variant="ghost"
-                  className="flex-1 bg-red-500/10 text-red-500"
-                  onClick={() => setShowForm(false)}
-                >
-                  취소
-                </Button>
-                <Button
-                  variant="default"
-                  className="flex-1"
-                  onClick={handleSubmit}
-                  disabled={processing}
-                >
-                  {processing ? '신청 중...' : '신청'}
-                </Button>
-              </div>
-            </div>
+            <FormPanel isMobile />
           </div>
         </div>
       )}
