@@ -12,7 +12,25 @@ import { useAuth } from '@/components/providers/auth-provider'
 import type { Profile, PenaltyReason } from '@/types/database'
 
 type StudentModalTab = 'list' | 'direct' | 'search'
-type ReasonModalTab = 'favorites' | 'list' | 'direct'
+type ReasonTab = 'favorites' | 'list' | 'direct'
+
+// Avatar colors based on student number
+const avatarColors = [
+  'from-purple-500 to-pink-500',
+  'from-blue-500 to-cyan-500',
+  'from-green-500 to-teal-500',
+  'from-orange-500 to-red-500',
+  'from-yellow-500 to-orange-500',
+  'from-pink-500 to-rose-500',
+  'from-indigo-500 to-purple-500',
+  'from-cyan-500 to-blue-500',
+]
+
+const getAvatarColor = (studentNumber: string | null) => {
+  if (!studentNumber) return avatarColors[0]
+  const num = parseInt(studentNumber.slice(-2)) || 0
+  return avatarColors[num % avatarColors.length]
+}
 
 export default function PenaltyGivePage() {
   const router = useRouter()
@@ -28,15 +46,15 @@ export default function PenaltyGivePage() {
   // Student modal state
   const [showStudentModal, setShowStudentModal] = useState(false)
   const [studentModalTab, setStudentModalTab] = useState<StudentModalTab>('list')
-  const [selectedGrade, setSelectedGrade] = useState<number | null>(null)
+  const [selectedGrade, setSelectedGrade] = useState<number>(1)
   const [selectedClass, setSelectedClass] = useState<number | '*'>('*')
   const [studentSearchQuery, setStudentSearchQuery] = useState('')
   const [directInputStudents, setDirectInputStudents] = useState<Profile[]>([])
   const [directInputText, setDirectInputText] = useState('')
 
-  // Reason modal state
-  const [showReasonModal, setShowReasonModal] = useState(false)
-  const [reasonModalTab, setReasonModalTab] = useState<ReasonModalTab>('list')
+  // Reason dropdown state
+  const [showReasonDropdown, setShowReasonDropdown] = useState(false)
+  const [reasonTab, setReasonTab] = useState<ReasonTab>('list')
   const [reasonSearchQuery, setReasonSearchQuery] = useState('')
   const [customReason, setCustomReason] = useState('')
   const [customPoints, setCustomPoints] = useState('')
@@ -48,7 +66,6 @@ export default function PenaltyGivePage() {
   useEffect(() => {
     if (isTeacher) {
       fetchData()
-      // Load favorites from localStorage
       const saved = localStorage.getItem('penalty_favorite_reasons')
       if (saved) {
         setFavoriteReasons(JSON.parse(saved))
@@ -82,7 +99,6 @@ export default function PenaltyGivePage() {
     }
   }
 
-  // Parse student number to get grade and class
   const parseStudentNumber = (studentNumber: string | null) => {
     if (!studentNumber || studentNumber.length < 4) return { grade: null, classNum: null }
     const grade = parseInt(studentNumber[0])
@@ -90,17 +106,15 @@ export default function PenaltyGivePage() {
     return { grade, classNum }
   }
 
-  // Filter students for list tab
   const filteredStudentsForList = useMemo(() => {
     return students.filter((student) => {
       const { grade, classNum } = parseStudentNumber(student.student_number)
-      if (selectedGrade !== null && grade !== selectedGrade) return false
+      if (grade !== selectedGrade) return false
       if (selectedClass !== '*' && classNum !== selectedClass) return false
       return true
     })
   }, [students, selectedGrade, selectedClass])
 
-  // Filter students for search tab
   const filteredStudentsForSearch = useMemo(() => {
     if (!studentSearchQuery.trim()) return []
     const query = studentSearchQuery.toLowerCase()
@@ -111,7 +125,6 @@ export default function PenaltyGivePage() {
     )
   }, [students, studentSearchQuery])
 
-  // Filter reasons
   const filteredReasons = useMemo(() => {
     if (!reasonSearchQuery.trim()) return reasons
     const query = reasonSearchQuery.toLowerCase()
@@ -122,7 +135,6 @@ export default function PenaltyGivePage() {
     )
   }, [reasons, reasonSearchQuery])
 
-  // Favorite reasons
   const favoriteReasonsList = useMemo(() => {
     return reasons.filter((r) => favoriteReasons.includes(r.id))
   }, [reasons, favoriteReasons])
@@ -193,7 +205,7 @@ export default function PenaltyGivePage() {
       return
     }
     setSelectedReason({ title: customReason, points })
-    setShowReasonModal(false)
+    setShowReasonDropdown(false)
   }
 
   const handleSubmit = async () => {
@@ -255,6 +267,12 @@ export default function PenaltyGivePage() {
     setDirectInputStudents([])
   }
 
+  // Generate email from student number
+  const getStudentEmail = (studentNumber: string | null) => {
+    if (!studentNumber) return ''
+    return `${studentNumber.slice(0, 2)}th${studentNumber.slice(2)}@djshs.djsch.kr`
+  }
+
   if (!isTeacher) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -264,7 +282,7 @@ export default function PenaltyGivePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto p-4">
       <h1 className="text-2xl font-bold mb-6">벌점 부여</h1>
 
       {/* Target Selection */}
@@ -272,14 +290,19 @@ export default function PenaltyGivePage() {
         <label className="block text-sm font-medium mb-2">대상</label>
         <button
           onClick={() => setShowStudentModal(true)}
-          className="w-full p-4 rounded-lg border border-border bg-background-secondary text-center hover:border-accent transition-colors"
+          className={cn(
+            'w-full p-4 rounded-lg border text-center transition-colors',
+            selectedStudents.length > 0
+              ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
+              : 'border-border bg-background-secondary hover:border-accent text-foreground-secondary'
+          )}
         >
           {selectedStudents.length > 0 ? (
-            <span className="text-accent font-medium">
+            <span className="font-medium">
               {selectedStudents.map((s) => `${s.student_number} ${s.name}`).join(', ')}
             </span>
           ) : (
-            <span className="text-foreground-secondary">클릭해서 대상 선택...</span>
+            '클릭해서 대상 선택...'
           )}
         </button>
       </div>
@@ -288,17 +311,156 @@ export default function PenaltyGivePage() {
       <div className="mb-6">
         <label className="block text-sm font-medium mb-2">사유</label>
         <button
-          onClick={() => setShowReasonModal(true)}
-          className="w-full p-4 rounded-lg border border-border bg-background-secondary text-center hover:border-accent transition-colors"
+          onClick={() => setShowReasonDropdown(!showReasonDropdown)}
+          className={cn(
+            'w-full p-4 rounded-lg border text-center transition-colors',
+            selectedReason
+              ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
+              : 'border-border bg-background-secondary hover:border-accent text-foreground-secondary'
+          )}
         >
           {selectedReason ? (
-            <span className="text-accent font-medium">
+            <span className="font-medium">
               {selectedReason.title} ({selectedReason.points > 0 ? '+' : ''}{selectedReason.points}점)
             </span>
           ) : (
-            <span className="text-foreground-secondary">클릭해서 사유 선택...</span>
+            '클릭해서 사유 선택...'
           )}
         </button>
+
+        {/* Inline Reason Dropdown */}
+        {showReasonDropdown && (
+          <div className="mt-2 border border-border rounded-lg bg-background overflow-hidden">
+            {/* Tabs */}
+            <div className="flex border-b border-border">
+              {[
+                { id: 'favorites', label: '☆' },
+                { id: 'list', label: '목록' },
+                { id: 'direct', label: '직접 입력' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setReasonTab(tab.id as ReasonTab)}
+                  className={cn(
+                    'flex-1 py-2 text-center text-sm font-medium transition-colors',
+                    reasonTab === tab.id
+                      ? 'bg-accent text-white'
+                      : 'hover:bg-background-secondary'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div className="p-3">
+              {reasonTab === 'favorites' && (
+                <>
+                  {favoriteReasonsList.length === 0 ? (
+                    <p className="text-foreground-secondary text-center py-4 text-sm">
+                      즐겨찾기한 사유가 없습니다.
+                    </p>
+                  ) : (
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {favoriteReasonsList.map((reason) => (
+                        <button
+                          key={reason.id}
+                          onClick={() => {
+                            setSelectedReason({ title: reason.title, points: reason.points, id: reason.id })
+                            setShowReasonDropdown(false)
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded hover:bg-background-secondary transition-colors text-sm"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                            <span>{reason.title}</span>
+                          </div>
+                          <span>{reason.points}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {reasonTab === 'list' && (
+                <>
+                  <Input
+                    placeholder="내용 또는 점수로 검색"
+                    value={reasonSearchQuery}
+                    onChange={(e) => setReasonSearchQuery(e.target.value)}
+                    className="mb-3 text-sm"
+                  />
+
+                  {/* Table Header */}
+                  <div className="flex items-center py-2 px-2 border-b border-border text-xs text-foreground-secondary">
+                    <div className="w-6">☆</div>
+                    <div className="flex-1">내용</div>
+                    <div className="w-12 text-right">점수</div>
+                  </div>
+
+                  {/* Table Body */}
+                  <div className="max-h-48 overflow-y-auto">
+                    {filteredReasons.map((reason) => {
+                      const isFavorite = favoriteReasons.includes(reason.id)
+                      return (
+                        <button
+                          key={reason.id}
+                          onClick={() => {
+                            setSelectedReason({ title: reason.title, points: reason.points, id: reason.id })
+                            setShowReasonDropdown(false)
+                          }}
+                          className="w-full flex items-center py-2 px-2 border-b border-border hover:bg-background-secondary transition-colors text-sm"
+                        >
+                          <div className="w-6">
+                            <Star
+                              className={cn(
+                                'h-3 w-3 cursor-pointer',
+                                isFavorite ? 'text-yellow-500 fill-yellow-500' : 'text-foreground-secondary'
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleFavorite(reason.id)
+                              }}
+                            />
+                          </div>
+                          <div className="flex-1 text-left">{reason.title}</div>
+                          <div className="w-12 text-right">{reason.points}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+
+              {reasonTab === 'direct' && (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="사유"
+                      value={customReason}
+                      onChange={(e) => setCustomReason(e.target.value)}
+                      className="flex-1 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="점수"
+                      value={customPoints}
+                      onChange={(e) => setCustomPoints(e.target.value)}
+                      className="w-20 text-sm"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={applyCustomReason}>
+                      적용
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Preview Toggle */}
@@ -333,21 +495,19 @@ export default function PenaltyGivePage() {
 
       {/* Submit Button */}
       <Button
-        className="w-full bg-red-600 hover:bg-red-700 text-white"
+        className="w-auto px-6 bg-red-600 hover:bg-red-700 text-white"
         onClick={handleSubmit}
         disabled={submitting || selectedStudents.length === 0 || !selectedReason}
       >
         {submitting ? (
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-        ) : (
-          <AlertTriangle className="h-4 w-4 mr-2" />
-        )}
+        ) : null}
         벌점 부여
       </Button>
 
       {/* Validation Message */}
       {(selectedStudents.length === 0 || !selectedReason) && (
-        <p className="text-center text-sm text-red-500 mt-4">
+        <p className="text-sm text-red-500 mt-4">
           대상과 사유를 입력하세요.
         </p>
       )}
@@ -355,7 +515,7 @@ export default function PenaltyGivePage() {
       {/* Student Selection Modal */}
       {showStudentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-background rounded-lg w-full max-w-3xl max-h-[90vh] flex flex-col">
+          <div className="bg-background rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
             {/* Tabs */}
             <div className="flex border-b border-border">
               {[
@@ -383,15 +543,15 @@ export default function PenaltyGivePage() {
               {studentModalTab === 'list' && (
                 <>
                   {/* Grade Filter */}
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-4 mb-4">
                     <span className="text-sm font-medium">학년</span>
                     <div className="flex gap-1">
                       {[1, 2, 3].map((grade) => (
                         <button
                           key={grade}
-                          onClick={() => setSelectedGrade(selectedGrade === grade ? null : grade)}
+                          onClick={() => setSelectedGrade(grade)}
                           className={cn(
-                            'px-3 py-1 rounded text-sm',
+                            'w-8 h-8 rounded text-sm font-medium',
                             selectedGrade === grade
                               ? 'bg-accent text-white'
                               : 'bg-background-secondary hover:bg-background-secondary/80'
@@ -404,7 +564,7 @@ export default function PenaltyGivePage() {
                   </div>
 
                   {/* Class Filter */}
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-4 mb-4">
                     <span className="text-sm font-medium">반</span>
                     <div className="flex gap-1">
                       {(['*', 1, 2, 3, 4, 5, 6] as (number | '*')[]).map((cls) => (
@@ -412,7 +572,7 @@ export default function PenaltyGivePage() {
                           key={cls}
                           onClick={() => setSelectedClass(cls)}
                           className={cn(
-                            'px-3 py-1 rounded text-sm',
+                            'w-8 h-8 rounded text-sm font-medium',
                             selectedClass === cls
                               ? 'bg-accent text-white'
                               : 'bg-background-secondary hover:bg-background-secondary/80'
@@ -436,7 +596,7 @@ export default function PenaltyGivePage() {
                   </label>
 
                   {/* Student Grid */}
-                  <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto border border-border rounded-lg p-2">
                     {filteredStudentsForList.map((student) => {
                       const isSelected = selectedStudents.some((s) => s.id === student.id)
                       return (
@@ -447,21 +607,26 @@ export default function PenaltyGivePage() {
                             'flex items-center gap-2 p-2 rounded-lg text-left transition-colors',
                             isSelected
                               ? 'bg-accent/20 border border-accent'
-                              : 'bg-background-secondary hover:bg-background-secondary/80 border border-transparent'
+                              : 'hover:bg-background-secondary border border-transparent'
                           )}
                         >
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => {}}
-                            className="rounded border-border"
+                            className="rounded border-border flex-shrink-0"
                           />
-                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
+                          <div className={cn(
+                            'h-8 w-8 rounded-full bg-gradient-to-br flex items-center justify-center text-white text-xs font-bold flex-shrink-0',
+                            getAvatarColor(student.student_number)
+                          )}>
                             {student.name[0]}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{student.student_number} {student.name}</p>
-                            <p className="text-xs text-foreground-secondary truncate">{student.email}</p>
+                            <p className="text-xs text-foreground-secondary truncate">
+                              {getStudentEmail(student.student_number)}
+                            </p>
                           </div>
                         </button>
                       )
@@ -494,32 +659,17 @@ export default function PenaltyGivePage() {
                       ))}
                     </div>
                   )}
-
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="학번 또는 이름 입력"
-                      value={directInputText}
-                      onChange={(e) => setDirectInputText(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleDirectInput()}
-                    />
-                    <Button onClick={handleDirectInput}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </>
               )}
 
               {studentModalTab === 'search' && (
                 <>
-                  <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-secondary" />
-                    <Input
-                      placeholder="학번 또는 이름 입력"
-                      value={studentSearchQuery}
-                      onChange={(e) => setStudentSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
+                  <Input
+                    placeholder="학번 또는 이름 입력"
+                    value={studentSearchQuery}
+                    onChange={(e) => setStudentSearchQuery(e.target.value)}
+                    className="mb-4"
+                  />
 
                   {!studentSearchQuery.trim() ? (
                     <p className="text-foreground-secondary text-center py-8">
@@ -555,6 +705,18 @@ export default function PenaltyGivePage() {
               )}
             </div>
 
+            {/* Footer - Direct input field */}
+            {studentModalTab === 'direct' && (
+              <div className="px-4 pb-2">
+                <Input
+                  placeholder="학번 또는 이름 입력"
+                  value={directInputText}
+                  onChange={(e) => setDirectInputText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleDirectInput()}
+                />
+              </div>
+            )}
+
             {/* Footer */}
             <div className="flex items-center justify-between p-4 border-t border-border">
               <span className="text-sm">{selectedStudents.length}명 선택됨</span>
@@ -563,7 +725,6 @@ export default function PenaltyGivePage() {
                   초기화
                 </Button>
                 <Button onClick={() => {
-                  // Apply direct input students to selection
                   if (studentModalTab === 'direct') {
                     directInputStudents.forEach((s) => {
                       if (!selectedStudents.some((sel) => sel.id === s.id)) {
@@ -576,166 +737,6 @@ export default function PenaltyGivePage() {
                   닫기
                 </Button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reason Selection Modal */}
-      {showReasonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-background rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col">
-            {/* Tabs */}
-            <div className="flex border-b border-border">
-              {[
-                { id: 'favorites', label: '☆' },
-                { id: 'list', label: '목록' },
-                { id: 'direct', label: '직접 입력' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setReasonModalTab(tab.id as ReasonModalTab)}
-                  className={cn(
-                    'flex-1 py-3 text-center font-medium transition-colors',
-                    reasonModalTab === tab.id
-                      ? 'bg-accent text-white'
-                      : 'hover:bg-background-secondary'
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-auto p-4">
-              {reasonModalTab === 'favorites' && (
-                <>
-                  {favoriteReasonsList.length === 0 ? (
-                    <p className="text-foreground-secondary text-center py-8">
-                      즐겨찾기한 사유가 없습니다. 목록에서 ☆를 클릭해 추가하세요.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {favoriteReasonsList.map((reason) => (
-                        <button
-                          key={reason.id}
-                          onClick={() => {
-                            setSelectedReason({ title: reason.title, points: reason.points, id: reason.id })
-                            setShowReasonModal(false)
-                          }}
-                          className="w-full flex items-center justify-between p-3 rounded-lg bg-background-secondary hover:bg-background-secondary/80 transition-colors"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Star
-                              className="h-4 w-4 text-yellow-500 fill-yellow-500 cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleFavorite(reason.id)
-                              }}
-                            />
-                            <span>{reason.title}</span>
-                          </div>
-                          <Badge className={cn(
-                            reason.points > 0
-                              ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                              : 'bg-green-500/10 text-green-500 border-green-500/20'
-                          )}>
-                            {reason.points}
-                          </Badge>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {reasonModalTab === 'list' && (
-                <>
-                  <div className="relative mb-4">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-secondary" />
-                    <Input
-                      placeholder="내용 또는 점수로 검색"
-                      value={reasonSearchQuery}
-                      onChange={(e) => setReasonSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-
-                  {/* Table Header */}
-                  <div className="flex items-center py-2 px-3 border-b border-border text-sm text-foreground-secondary">
-                    <div className="w-8">☆</div>
-                    <div className="flex-1">내용</div>
-                    <div className="w-16 text-right">점수</div>
-                  </div>
-
-                  {/* Table Body */}
-                  <div className="max-h-80 overflow-y-auto">
-                    {filteredReasons.map((reason) => {
-                      const isFavorite = favoriteReasons.includes(reason.id)
-                      return (
-                        <button
-                          key={reason.id}
-                          onClick={() => {
-                            setSelectedReason({ title: reason.title, points: reason.points, id: reason.id })
-                            setShowReasonModal(false)
-                          }}
-                          className="w-full flex items-center py-3 px-3 border-b border-border hover:bg-background-secondary transition-colors"
-                        >
-                          <div className="w-8">
-                            <Star
-                              className={cn(
-                                'h-4 w-4 cursor-pointer',
-                                isFavorite ? 'text-yellow-500 fill-yellow-500' : 'text-foreground-secondary'
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleFavorite(reason.id)
-                              }}
-                            />
-                          </div>
-                          <div className="flex-1 text-left">{reason.title}</div>
-                          <div className="w-16 text-right">{reason.points}</div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-
-              {reasonModalTab === 'direct' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">사유</label>
-                    <Input
-                      placeholder="사유를 입력하세요"
-                      value={customReason}
-                      onChange={(e) => setCustomReason(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">점수</label>
-                    <Input
-                      type="number"
-                      placeholder="점수 (양수: 벌점, 음수: 상점)"
-                      value={customPoints}
-                      onChange={(e) => setCustomPoints(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <Button onClick={applyCustomReason}>
-                      적용
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end p-4 border-t border-border">
-              <Button variant="ghost" onClick={() => setShowReasonModal(false)}>
-                닫기
-              </Button>
             </div>
           </div>
         </div>
