@@ -3,15 +3,25 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { BookOpen, Calendar, MapPin, Clock, Check, X, Users } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
+import { ChevronLeft, ChevronRight, MapPin, X, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/auth-provider'
-import type { StudySeat, StudyApplication, ApplicationStatus } from '@/types/database'
+import type { ApplicationStatus } from '@/types/database'
 
-interface SeatWithApplication extends StudySeat {
+// 건물 탭 타입
+type BuildingTab = 'A' | 'B' | 'S'
+
+// 좌석 데이터 타입
+interface Seat {
+  id: string
+  room_name: string
+  seat_number: string
+  is_available: boolean
+}
+
+interface SeatWithApplication extends Seat {
   application?: {
     id: string
     user_id: string
@@ -23,31 +33,44 @@ interface SeatWithApplication extends StudySeat {
   } | null
 }
 
-const statusLabels: Record<ApplicationStatus, string> = {
-  pending: '대기중',
-  approved: '승인됨',
-  rejected: '거절됨',
-  cancelled: '취소됨',
-  completed: '완료됨',
+// 영역 정보 타입
+interface AreaInfo {
+  name: string
+  current: number
+  max: number
+  seats: SeatWithApplication[]
 }
 
-const statusColors: Record<ApplicationStatus, string> = {
-  pending: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  approved: 'bg-green-500/10 text-green-500 border-green-500/20',
-  rejected: 'bg-red-500/10 text-red-500 border-red-500/20',
-  cancelled: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
-  completed: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+// 건물별 영역 구성
+const buildingAreas: Record<BuildingTab, string[]> = {
+  A: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8'],
+  B: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9'],
+  S: ['s1', 's2', 's3', 's4', 's5', 's6'],
+}
+
+// 영역별 좌석 수 설정
+const areaCapacity: Record<string, number> = {
+  a1: 15, a2: 18, a3: 8, a4: 18, a5: 10, a6: 15, a7: 16, a8: 23,
+  b1: 14, b2: 8, b3: 12, b4: 4, b5: 11, b6: 6, b7: 24, b8: 19, b9: 4,
+  s1: 18, s2: 18, s3: 18, s4: 18, s5: 18, s6: 8,
 }
 
 export default function StudyPage() {
   const { user } = useAuth()
-  const [selectedDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedTab, setSelectedTab] = useState<BuildingTab>('A')
   const [seats, setSeats] = useState<SeatWithApplication[]>([])
-  const [myApplication, setMyApplication] = useState<(StudyApplication & { seat: StudySeat }) | null>(null)
   const [loading, setLoading] = useState(true)
   const [applying, setApplying] = useState(false)
+  const [selectedArea, setSelectedArea] = useState<string | null>(null)
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null)
-  const [showStatus, setShowStatus] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [myApplication, setMyApplication] = useState<{
+    seat_id: string
+    room_name: string
+    seat_number: string
+    status: ApplicationStatus
+  } | null>(null)
 
   const supabase = createClient()
   const dateStr = format(selectedDate, 'yyyy-MM-dd')
@@ -82,6 +105,7 @@ export default function StudyPage() {
           profiles:user_id (name, student_number)
         `)
         .eq('date', dateStr)
+        .neq('status', 'cancelled')
 
       if (applicationsError) throw applicationsError
 
@@ -107,14 +131,10 @@ export default function StudyPage() {
         const seat = seatsData?.find((s) => s.id === myApp.seat_id)
         if (seat) {
           setMyApplication({
-            id: myApp.id,
-            user_id: myApp.user_id,
             seat_id: myApp.seat_id,
-            date: dateStr,
+            room_name: seat.room_name,
+            seat_number: seat.seat_number,
             status: myApp.status,
-            created_at: '',
-            updated_at: '',
-            seat,
           })
         }
       } else {
@@ -149,6 +169,7 @@ export default function StudyPage() {
         }
       } else {
         await fetchData()
+        setSelectedArea(null)
         setSelectedSeat(null)
       }
     } catch (error) {
@@ -168,7 +189,8 @@ export default function StudyPage() {
       const { error } = await supabase
         .from('study_applications')
         .update({ status: 'cancelled' })
-        .eq('id', myApplication.id)
+        .eq('seat_id', myApplication.seat_id)
+        .eq('date', dateStr)
 
       if (error) throw error
       await fetchData()
@@ -180,262 +202,265 @@ export default function StudyPage() {
     }
   }
 
-  // Group seats by room
-  const seatsByRoom = seats.reduce((acc, seat) => {
-    if (!acc[seat.room_name]) {
-      acc[seat.room_name] = []
+  // 날짜 변경
+  const changeDate = (delta: number) => {
+    const newDate = new Date(selectedDate)
+    newDate.setDate(newDate.getDate() + delta)
+    setSelectedDate(newDate)
+  }
+
+  // 건물별 좌석 필터링
+  const getSeatsForBuilding = (building: BuildingTab) => {
+    const prefix = building.toLowerCase()
+    return seats.filter((seat) => seat.room_name.toLowerCase().startsWith(prefix))
+  }
+
+  // 영역별 정보 계산
+  const getAreaInfo = (areaName: string): AreaInfo => {
+    const areaSeats = seats.filter((seat) => seat.room_name.toLowerCase() === areaName)
+    const occupiedCount = areaSeats.filter(
+      (s) => s.application && s.application.status !== 'cancelled'
+    ).length
+    return {
+      name: areaName,
+      current: occupiedCount,
+      max: areaSeats.length || areaCapacity[areaName] || 0,
+      seats: areaSeats,
     }
-    acc[seat.room_name].push(seat)
-    return acc
-  }, {} as Record<string, SeatWithApplication[]>)
+  }
 
-  const canApply = !myApplication || myApplication.status === 'cancelled' || myApplication.status === 'rejected'
+  // 모달에서 좌석 선택
+  const handleSeatSelect = (seatId: string) => {
+    if (myApplication) return
+    setSelectedSeat(selectedSeat === seatId ? null : seatId)
+  }
 
-  if (showStatus) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Users className="h-6 w-6" />
-              자습 신청 현황
-            </h1>
-            <p className="text-foreground-secondary mt-1">
-              {format(selectedDate, 'M월 d일', { locale: ko })}
-            </p>
-          </div>
-          <Button variant="ghost" onClick={() => setShowStatus(false)}>
-            돌아가기
+  // 모달 닫기
+  const closeModal = () => {
+    setSelectedArea(null)
+    setSelectedSeat(null)
+  }
+
+  // S건물 열 데이터 생성
+  const getSColumnSeats = (columnName: string) => {
+    return seats
+      .filter((seat) => seat.room_name.toLowerCase() === columnName)
+      .sort((a, b) => {
+        const numA = parseInt(a.seat_number.replace(/\D/g, ''))
+        const numB = parseInt(b.seat_number.replace(/\D/g, ''))
+        return numA - numB
+      })
+  }
+
+  const canApply = !myApplication
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => changeDate(-1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="font-medium">
+            {format(selectedDate, 'M월 d일', { locale: ko }) === format(new Date(), 'M월 d일', { locale: ko })
+              ? '오늘'
+              : format(selectedDate, 'M월 d일', { locale: ko })}
+          </span>
+          <Button variant="ghost" size="sm" onClick={() => changeDate(1)}>
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="space-y-6">
-          {Object.entries(seatsByRoom).map(([roomName, roomSeats]) => (
-            <Card key={roomName}>
-              <CardHeader>
-                <CardTitle>{roomName}</CardTitle>
-                <CardDescription>
-                  {roomSeats.filter((s) => s.application && s.application.status !== 'cancelled').length} / {roomSeats.length} 신청됨
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                  {roomSeats.map((seat) => {
-                    const isOccupied = !!(seat.application && seat.application.status !== 'cancelled')
-                    return (
-                      <div
-                        key={seat.id}
-                        className={`p-3 rounded-lg border text-center ${
-                          isOccupied
-                            ? 'bg-accent/10 border-accent'
-                            : 'bg-background-secondary border-border'
-                        }`}
-                      >
-                        <p className="font-medium">{seat.seat_number}</p>
-                        {isOccupied && seat.application?.user && (
-                          <p className="text-xs text-foreground-secondary mt-1">
-                            {seat.application.user.student_number} {seat.application.user.name}
-                          </p>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* 내 신청 현황 */}
+        {myApplication && (
+          <div className="flex items-center gap-2 text-sm">
+            <MapPin className="h-4 w-4 text-accent" />
+            <span>{myApplication.room_name} {myApplication.seat_number}</span>
+            <Button variant="ghost" size="sm" onClick={handleCancel} disabled={applying}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
-    )
-  }
 
-  return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BookOpen className="h-6 w-6" />
-            자습 신청
-          </h1>
-          <p className="text-foreground-secondary mt-1">
-            {format(selectedDate, 'M월 d일', { locale: ko })}
-          </p>
+      {/* Building Tabs */}
+      <div className="flex border-b border-border">
+        {(['A', 'B', 'S'] as BuildingTab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setSelectedTab(tab)}
+            className={`flex-1 py-3 text-center font-medium transition-colors ${
+              selectedTab === tab
+                ? 'bg-background-secondary text-foreground border-b-2 border-accent'
+                : 'text-foreground-secondary hover:text-foreground'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Search Bar */}
+      <div className="px-4 py-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-secondary" />
+          <Input
+            type="search"
+            placeholder="학생, 좌석 검색..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* My Application */}
-          <Card>
-            <CardHeader>
-              <CardTitle>신청한 좌석</CardTitle>
-              <CardDescription>오늘 신청한 자습 좌석입니다</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                </div>
-              ) : myApplication && myApplication.status !== 'cancelled' ? (
-                <div className="flex items-center justify-between p-4 bg-background-secondary rounded-lg">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-accent/10 flex items-center justify-center">
-                      <MapPin className="h-6 w-6 text-accent" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{myApplication.seat.room_name}</p>
-                      <p className="text-sm text-foreground-secondary">좌석 {myApplication.seat.seat_number}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge className={statusColors[myApplication.status]}>
-                      {statusLabels[myApplication.status]}
-                    </Badge>
-                    {myApplication.status === 'pending' && (
-                      <Button variant="ghost" size="sm" onClick={handleCancel} disabled={applying}>
-                        <X className="h-4 w-4 mr-1" />
-                        취소
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-foreground-secondary">
-                  <MapPin className="h-12 w-12 mb-4 opacity-50" />
-                  <p>신청한 좌석이 없습니다</p>
-                  <p className="text-sm mt-1">아래에서 좌석을 선택하여 신청하세요</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Seat Selection */}
-          {canApply && (
-            <Card>
-              <CardHeader>
-                <CardTitle>좌석 선택</CardTitle>
-                <CardDescription>신청할 좌석을 선택하세요</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                  </div>
-                ) : (
-                  Object.entries(seatsByRoom).map(([roomName, roomSeats]) => (
-                    <div key={roomName}>
-                      <h3 className="font-medium mb-3">{roomName}</h3>
-                      <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-                        {roomSeats.map((seat) => {
-                          const isOccupied = !!(seat.application && seat.application.status !== 'cancelled')
-                          const isSelected = selectedSeat === seat.id
-                          return (
-                            <button
-                              key={seat.id}
-                              onClick={() => !isOccupied && setSelectedSeat(isSelected ? null : seat.id)}
-                              disabled={isOccupied}
-                              className={`
-                                p-2 rounded-lg border text-sm font-medium transition-colors
-                                ${isOccupied
-                                  ? 'bg-foreground-secondary/10 text-foreground-secondary cursor-not-allowed'
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto p-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          </div>
+        ) : selectedTab === 'S' ? (
+          /* S Building - Column Layout */
+          <div className="overflow-x-auto">
+            <div className="inline-flex gap-4 min-w-full pb-4">
+              {buildingAreas.S.map((columnName) => {
+                const columnSeats = getSColumnSeats(columnName)
+                return (
+                  <div key={columnName} className="flex-shrink-0 w-24">
+                    <div className="text-center font-bold text-lg mb-3">{columnName}</div>
+                    <div className="space-y-2">
+                      {columnSeats.map((seat) => {
+                        const isOccupied = !!(seat.application && seat.application.status !== 'cancelled')
+                        const isMine = myApplication?.seat_id === seat.id
+                        const isSelected = selectedSeat === seat.id
+                        return (
+                          <button
+                            key={seat.id}
+                            onClick={() => canApply && !isOccupied && handleSeatSelect(seat.id)}
+                            disabled={isOccupied || !canApply}
+                            className={`w-full py-2 px-3 rounded text-sm font-medium transition-colors ${
+                              isMine
+                                ? 'bg-accent text-white'
+                                : isOccupied
+                                  ? 'bg-foreground-secondary/20 text-foreground-secondary cursor-not-allowed'
                                   : isSelected
-                                    ? 'bg-accent text-white border-accent'
-                                    : 'bg-background-secondary border-border hover:border-accent'
-                                }
-                              `}
-                            >
-                              {seat.seat_number}
-                            </button>
-                          )
-                        })}
-                      </div>
+                                    ? 'bg-accent text-white'
+                                    : 'bg-background-secondary hover:bg-accent/20'
+                            }`}
+                          >
+                            {seat.seat_number}
+                          </button>
+                        )
+                      })}
                     </div>
-                  ))
-                )}
-
-                {selectedSeat && (
-                  <div className="flex items-center justify-between pt-4 border-t border-border">
-                    <div>
-                      <p className="text-sm text-foreground-secondary">선택한 좌석</p>
-                      <p className="font-medium">
-                        {seats.find((s) => s.id === selectedSeat)?.room_name}{' '}
-                        {seats.find((s) => s.id === selectedSeat)?.seat_number}
-                      </p>
-                    </div>
-                    <Button onClick={() => handleApply(selectedSeat)} disabled={applying}>
-                      {applying ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                      ) : (
-                        <Check className="h-4 w-4 mr-2" />
-                      )}
-                      신청하기
-                    </Button>
+                    <div className="text-center text-xs text-foreground-secondary mt-2">↓ 복도</div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          /* A, B Buildings - Area Cards */
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {buildingAreas[selectedTab].map((areaName) => {
+              const areaInfo = getAreaInfo(areaName)
+              const isFull = areaInfo.current >= areaInfo.max
+              return (
+                <button
+                  key={areaName}
+                  onClick={() => setSelectedArea(areaName)}
+                  className={`p-4 rounded-lg border transition-colors text-left ${
+                    isFull
+                      ? 'bg-foreground-secondary/10 border-border'
+                      : 'bg-background-secondary border-border hover:border-accent'
+                  }`}
+                >
+                  <div className="text-2xl font-bold">{areaName}</div>
+                  <div className="text-sm text-foreground-secondary mt-1">
+                    {areaInfo.current}/{areaInfo.max}
+                  </div>
+                  <div className="mt-2 h-1 bg-background rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${isFull ? 'bg-foreground-secondary' : 'bg-accent'}`}
+                      style={{ width: `${areaInfo.max > 0 ? (areaInfo.current / areaInfo.max) * 100 : 0}%` }}
+                    />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          {/* Actions */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">액션</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="default" className="w-full justify-start" onClick={() => setShowStatus(true)}>
-                <Calendar className="h-4 w-4 mr-2" />
-                신청 현황 보기
-              </Button>
-              <Button variant="default" className="w-full justify-start">
-                <Clock className="h-4 w-4 mr-2" />
-                과거 기록 조회
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Legend */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">범례</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded bg-background-secondary border border-border" />
-                  <span>빈 좌석</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded bg-accent" />
-                  <span>선택됨</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded bg-foreground-secondary/10" />
-                  <span>신청됨</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Info */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">안내</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-foreground-secondary">
-                <li>• 자습 신청은 당일 오전까지 가능합니다</li>
-                <li>• 신청 후 취소는 자습 시작 전까지 가능합니다</li>
-                <li>• 무단 불참 시 벌점이 부과될 수 있습니다</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
+        {/* S Building - Apply Button */}
+        {selectedTab === 'S' && selectedSeat && canApply && (
+          <div className="fixed bottom-20 left-0 right-0 p-4 bg-background border-t border-border">
+            <Button
+              onClick={() => handleApply(selectedSeat)}
+              disabled={applying}
+              className="w-full"
+            >
+              {applying ? '신청 중...' : '신청하기'}
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Area Modal */}
+      {selectedArea && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeModal}>
+          <div
+            className="bg-background rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">{selectedArea} 좌석 선택</h3>
+              <Button variant="ghost" size="sm" onClick={closeModal}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              {getAreaInfo(selectedArea).seats.map((seat) => {
+                const isOccupied = !!(seat.application && seat.application.status !== 'cancelled')
+                const isMine = myApplication?.seat_id === seat.id
+                const isSelected = selectedSeat === seat.id
+                return (
+                  <button
+                    key={seat.id}
+                    onClick={() => canApply && !isOccupied && handleSeatSelect(seat.id)}
+                    disabled={isOccupied || !canApply}
+                    className={`py-3 px-2 rounded text-sm font-medium transition-colors ${
+                      isMine
+                        ? 'bg-accent text-white'
+                        : isOccupied
+                          ? 'bg-foreground-secondary/20 text-foreground-secondary cursor-not-allowed'
+                          : isSelected
+                            ? 'bg-accent text-white'
+                            : 'bg-background-secondary hover:bg-accent/20'
+                    }`}
+                  >
+                    {seat.seat_number}
+                  </button>
+                )
+              })}
+            </div>
+
+            {selectedSeat && canApply && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button
+                  onClick={() => handleApply(selectedSeat)}
+                  disabled={applying}
+                  className="w-full"
+                >
+                  {applying ? '신청 중...' : '신청하기'}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
