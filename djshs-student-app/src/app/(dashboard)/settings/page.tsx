@@ -1,48 +1,33 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import {
-  User,
-  Settings,
-  Utensils,
-  Bell,
-  BookOpen,
-  DoorOpen,
-  Info,
   Key,
   Plus,
   Trash2,
   Smartphone,
   Monitor,
   Mail,
-  Loader2,
+  Moon,
+  Sun,
+  Monitor as SystemIcon,
+  ChevronRight,
 } from 'lucide-react'
 import { useAuth } from '@/components/providers/auth-provider'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useTheme } from '@/components/providers/theme-provider'
 import { cn } from '@/lib/utils/cn'
 import type { Passkey } from '@/types/database'
 
-const menuItems = [
-  { title: '프로필', href: '/profile', icon: User },
-  { title: '일반', href: '/settings', icon: Settings },
-  { title: '급식', href: '/settings/meals', icon: Utensils },
-  { title: '알림', href: '/settings/notifications', icon: Bell },
-  { title: '자습 신청', href: '/settings/study', icon: BookOpen },
-  { title: '외출 신청', href: '/settings/outing', icon: DoorOpen },
-  { title: '사이트 정보', href: '/settings/about', icon: Info },
-]
-
 export default function SettingsPage() {
   const { user, profile } = useAuth()
+  const { theme, setTheme } = useTheme()
   const [passkeys, setPasskeys] = useState<Passkey[]>([])
   const [loading, setLoading] = useState(true)
   const [alternativeEmail, setAlternativeEmail] = useState('')
+  const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -70,7 +55,6 @@ export default function SettingsPage() {
   }
 
   const handleCreatePasskey = async () => {
-    // TODO: Implement WebAuthn passkey registration
     alert('패스키 생성 기능은 WebAuthn 서버 설정 후 구현됩니다.')
   }
 
@@ -91,12 +75,14 @@ export default function SettingsPage() {
 
   const handleSaveAlternativeEmail = async () => {
     if (!user) return
+    setSaving(true)
 
     const { error } = await supabase
       .from('profiles')
       .update({ alternative_email: alternativeEmail })
       .eq('id', user.id)
 
+    setSaving(false)
     if (error) {
       alert('저장에 실패했습니다.')
     } else {
@@ -121,130 +107,173 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">설정</h1>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        {/* Left Menu */}
-        <Card className="md:col-span-1 h-fit">
-          <CardContent className="p-2">
-            <nav className="space-y-1">
-              {menuItems.map((item) => {
-                const Icon = item.icon
-                const isActive = item.href === '/settings'
+      <div className="space-y-6">
+        {/* Theme Settings */}
+        <div className="rounded-lg border border-border bg-background-secondary p-4">
+          <h3 className="font-medium mb-4 flex items-center gap-2">
+            <Moon className="h-4 w-4" />
+            테마
+          </h3>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => setTheme('light')}
+              className={cn(
+                'flex items-center justify-center gap-2 py-3 px-4 rounded-lg border transition-colors',
+                theme === 'light'
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border hover:border-accent/50'
+              )}
+            >
+              <Sun className="h-4 w-4" />
+              <span className="text-sm">라이트</span>
+            </button>
+            <button
+              onClick={() => setTheme('dark')}
+              className={cn(
+                'flex items-center justify-center gap-2 py-3 px-4 rounded-lg border transition-colors',
+                theme === 'dark'
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border hover:border-accent/50'
+              )}
+            >
+              <Moon className="h-4 w-4" />
+              <span className="text-sm">다크</span>
+            </button>
+            <button
+              onClick={() => setTheme('system')}
+              className={cn(
+                'flex items-center justify-center gap-2 py-3 px-4 rounded-lg border transition-colors',
+                theme === 'system'
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border hover:border-accent/50'
+              )}
+            >
+              <SystemIcon className="h-4 w-4" />
+              <span className="text-sm">시스템</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Passkeys */}
+        <div className="rounded-lg border border-border bg-background-secondary p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-medium flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                패스키 관리
+              </h3>
+              <p className="text-xs text-foreground-secondary mt-1">
+                패스키를 사용하면 비밀번호 없이 로그인할 수 있습니다
+              </p>
+            </div>
+            <button
+              onClick={handleCreatePasskey}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent text-white text-sm hover:bg-accent/90 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              추가
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+            </div>
+          ) : passkeys.length === 0 ? (
+            <p className="text-sm text-foreground-secondary text-center py-8">
+              등록된 패스키가 없습니다
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {passkeys.map((passkey) => {
+                const DeviceIcon = getDeviceIcon(passkey.device_type)
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                      isActive
-                        ? 'bg-accent text-white'
-                        : 'text-foreground-secondary hover:bg-background-secondary hover:text-foreground'
-                    )}
+                  <div
+                    key={passkey.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-background border border-border"
                   >
-                    <Icon className="h-4 w-4" />
-                    {item.title}
-                  </Link>
+                    <div className="flex items-center gap-3">
+                      <DeviceIcon className="h-5 w-5 text-foreground-secondary" />
+                      <div>
+                        <p className="text-sm font-medium">
+                          {passkey.device_type || '알 수 없는 기기'}
+                        </p>
+                        <p className="text-xs text-foreground-secondary">
+                          {passkey.browser || '알 수 없는 브라우저'} · {format(new Date(passkey.created_at), 'M월 d일', { locale: ko })}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeletePasskey(passkey.id)}
+                      className="p-2 rounded-lg hover:bg-red-500/10 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </button>
+                  </div>
                 )
               })}
-            </nav>
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </div>
 
-        {/* Settings Content */}
-        <div className="md:col-span-3 space-y-6">
-          {/* Passkeys */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Key className="h-5 w-5" />
-                    패스키 관리
-                  </CardTitle>
-                  <CardDescription>
-                    패스키를 사용하면 비밀번호 없이 로그인할 수 있습니다
-                  </CardDescription>
-                </div>
-                <Button variant="primary" size="sm" onClick={handleCreatePasskey}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  패스키 생성
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-foreground-secondary" />
-                </div>
-              ) : passkeys.length === 0 ? (
-                <p className="text-sm text-foreground-secondary text-center py-8">
-                  등록된 패스키가 없습니다
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {passkeys.map((passkey) => {
-                    const DeviceIcon = getDeviceIcon(passkey.device_type)
+        {/* Alternative Email */}
+        <div className="rounded-lg border border-border bg-background-secondary p-4">
+          <h3 className="font-medium mb-1 flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            대체 이메일
+          </h3>
+          <p className="text-xs text-foreground-secondary mb-4">
+            패스키를 분실했을 때 계정 복구에 사용됩니다
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="email"
+              placeholder="backup@example.com"
+              value={alternativeEmail}
+              onChange={(e) => setAlternativeEmail(e.target.value)}
+              className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:border-accent"
+            />
+            <button
+              onClick={handleSaveAlternativeEmail}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg bg-accent text-white text-sm hover:bg-accent/90 transition-colors disabled:opacity-50"
+            >
+              {saving ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </div>
 
-                    return (
-                      <div
-                        key={passkey.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-background-secondary"
-                      >
-                        <div className="flex items-center gap-3">
-                          <DeviceIcon className="h-5 w-5 text-foreground-secondary" />
-                          <div>
-                            <p className="text-sm font-medium">
-                              {passkey.device_type || '알 수 없는 기기'} / {passkey.browser || '알 수 없는 브라우저'}
-                            </p>
-                            <p className="text-xs text-foreground-secondary">
-                              생성: {format(new Date(passkey.created_at), 'yyyy년 M월 d일', { locale: ko })}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeletePasskey(passkey.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-danger" />
-                        </Button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Alternative Email */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                대체 이메일
-              </CardTitle>
-              <CardDescription>
-                패스키를 분실했을 때 계정 복구에 사용됩니다
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-3">
-                <Input
-                  type="email"
-                  placeholder="backup@example.com"
-                  value={alternativeEmail}
-                  onChange={(e) => setAlternativeEmail(e.target.value)}
-                  className="flex-1"
-                />
-                <Button variant="default" onClick={handleSaveAlternativeEmail}>
-                  저장
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        {/* App Info */}
+        <div className="rounded-lg border border-border bg-background-secondary p-4">
+          <h3 className="font-medium mb-4">앱 정보</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-2 border-b border-border">
+              <span className="text-sm text-foreground-secondary">버전</span>
+              <span className="text-sm">1.0.0</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-border">
+              <span className="text-sm text-foreground-secondary">개발자</span>
+              <span className="text-sm">대전과학고등학교</span>
+            </div>
+            <a
+              href="/updates"
+              className="flex items-center justify-between py-2 hover:text-accent transition-colors"
+            >
+              <span className="text-sm">업데이트 내역</span>
+              <ChevronRight className="h-4 w-4" />
+            </a>
+            <a
+              href="/feedback"
+              className="flex items-center justify-between py-2 hover:text-accent transition-colors"
+            >
+              <span className="text-sm">피드백 보내기</span>
+              <ChevronRight className="h-4 w-4" />
+            </a>
+          </div>
         </div>
       </div>
     </div>
