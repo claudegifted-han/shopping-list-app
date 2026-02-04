@@ -3,8 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Users, Search, Download, ChevronLeft, ChevronRight, Eye, SlidersHorizontal } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
+import { Users, Search, ChevronLeft, ChevronRight, SlidersHorizontal, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +19,29 @@ type SortField = 'student_number' | 'name' | 'total_penalty'
 type SortOrder = 'asc' | 'desc'
 
 const ITEMS_PER_PAGE = 20
+
+// Avatar color palette
+const avatarColors = [
+  'from-purple-500 to-pink-500',
+  'from-blue-500 to-cyan-500',
+  'from-green-500 to-teal-500',
+  'from-orange-500 to-red-500',
+  'from-indigo-500 to-purple-500',
+  'from-pink-500 to-rose-500',
+  'from-cyan-500 to-blue-500',
+  'from-teal-500 to-green-500',
+]
+
+const getAvatarColor = (studentNumber: string | null) => {
+  if (!studentNumber) return avatarColors[0]
+  const num = parseInt(studentNumber.slice(-2)) || 0
+  return avatarColors[num % avatarColors.length]
+}
+
+const getStudentEmail = (studentNumber: string | null) => {
+  if (!studentNumber) return ''
+  return `${studentNumber.slice(0, 2)}th${studentNumber.slice(2)}@djshs.djsch.kr`
+}
 
 export default function StudentListPage() {
   const { profile } = useAuth()
@@ -41,6 +63,20 @@ export default function StudentListPage() {
       fetchStudents()
     }
   }, [isTeacher])
+
+  // Click outside handler
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('[data-dropdown-menu]')) return
+      setShowSortMenu(false)
+    }
+
+    if (showSortMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showSortMenu])
 
   const fetchStudents = async () => {
     setLoading(true)
@@ -125,36 +161,6 @@ export default function StudentListPage() {
     setCurrentPage(1)
   }, [searchQuery, sortField, sortOrder])
 
-  const handleExport = () => {
-    if (filteredAndSortedStudents.length === 0) {
-      alert('내보낼 데이터가 없습니다.')
-      return
-    }
-
-    const headers = ['학번', '이름', '총 벌점', '자습 장소']
-    const rows = filteredAndSortedStudents.map((s) => [
-      s.student_number || '',
-      s.name,
-      s.total_penalty?.toString() || '0',
-      s.study_location || '-',
-    ])
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-    ].join('\n')
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `학생목록_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedStudents.length / ITEMS_PER_PAGE)
   const paginatedStudents = filteredAndSortedStudents.slice(
@@ -171,43 +177,32 @@ export default function StudentListPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Users className="h-6 w-6" />
-          학생 목록
-        </h1>
-        <Button variant="default" onClick={handleExport} disabled={filteredAndSortedStudents.length === 0}>
-          <Download className="h-4 w-4 mr-2" />
-          내보내기
-        </Button>
-      </div>
-
+    <div className="max-w-4xl mx-auto">
       {/* Search and Sort */}
       <div className="flex gap-2 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-secondary" />
           <Input
             type="search"
-            placeholder="학번, 이름으로 검색 (모두 검색하려면 * 입력)"
+            placeholder="학번, 이름으로 검색(모두 검색하려면 *)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 bg-background-secondary border-border"
           />
         </div>
-        <div className="relative">
+        <div className="relative" data-dropdown-menu>
           <Button
-            variant="default"
+            variant="ghost"
             onClick={() => setShowSortMenu(!showSortMenu)}
+            className="px-3 bg-background-secondary hover:bg-background-secondary/80"
           >
             <SlidersHorizontal className="h-4 w-4" />
           </Button>
 
           {/* Sort Menu */}
           {showSortMenu && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-background border border-border rounded-lg shadow-lg z-10 p-3">
-              <p className="text-sm font-medium mb-2">정렬 기준</p>
+            <div className="absolute right-0 top-full mt-2 w-40 bg-background-secondary border border-border rounded-lg shadow-lg z-50 p-3">
+              <p className="text-sm font-medium mb-2 text-foreground-secondary">정렬 기준</p>
               <div className="space-y-1 mb-3">
                 {[
                   { value: 'student_number', label: '학번' },
@@ -217,19 +212,17 @@ export default function StudentListPage() {
                   <button
                     key={option.value}
                     onClick={() => setSortField(option.value as SortField)}
-                    className={`w-full text-left px-2 py-1 rounded text-sm ${
-                      sortField === option.value
-                        ? 'bg-accent text-white'
-                        : 'hover:bg-background-secondary'
-                    }`}
+                    className="w-full text-left px-2 py-1 rounded text-sm hover:bg-background flex items-center gap-2"
                   >
-                    {sortField === option.value && '• '}
+                    <span className="w-3 text-accent">
+                      {sortField === option.value && '•'}
+                    </span>
                     {option.label}
                   </button>
                 ))}
               </div>
 
-              <p className="text-sm font-medium mb-2">정렬 순서</p>
+              <p className="text-sm font-medium mb-2 text-foreground-secondary">정렬 순서</p>
               <div className="space-y-1">
                 {[
                   { value: 'asc', label: '오름차순' },
@@ -238,13 +231,11 @@ export default function StudentListPage() {
                   <button
                     key={option.value}
                     onClick={() => setSortOrder(option.value as SortOrder)}
-                    className={`w-full text-left px-2 py-1 rounded text-sm ${
-                      sortOrder === option.value
-                        ? 'bg-accent text-white'
-                        : 'hover:bg-background-secondary'
-                    }`}
+                    className="w-full text-left px-2 py-1 rounded text-sm hover:bg-background flex items-center gap-2"
                   >
-                    {sortOrder === option.value && '• '}
+                    <span className="w-3 text-accent">
+                      {sortOrder === option.value && '•'}
+                    </span>
                     {option.label}
                   </button>
                 ))}
@@ -254,219 +245,167 @@ export default function StudentListPage() {
         </div>
       </div>
 
-      {/* Click outside to close sort menu */}
-      {showSortMenu && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => setShowSortMenu(false)}
-        />
+      {/* Table Headers */}
+      <div className="grid grid-cols-3 gap-4 px-4 py-2 text-sm text-foreground-secondary border-b border-border">
+        <div>정보</div>
+        <div className="text-center">총 벌점</div>
+        <div>자습 장소</div>
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+        </div>
+      ) : !searchQuery.trim() ? (
+        <div className="flex flex-col items-center justify-center py-16 text-accent">
+          <p>검색어를 입력하세요. (*를 입력해 모두 선택)</p>
+        </div>
+      ) : paginatedStudents.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-foreground-secondary">
+          <Users className="h-12 w-12 mb-4 opacity-50" />
+          <p>검색 결과가 없습니다</p>
+        </div>
+      ) : (
+        <>
+          {/* Student List */}
+          <div className="divide-y divide-border">
+            {paginatedStudents.map((student) => (
+              <div
+                key={student.id}
+                className="grid grid-cols-3 gap-4 px-4 py-3 hover:bg-background-secondary/50 cursor-pointer transition-colors"
+                onClick={() => setSelectedStudent(student)}
+              >
+                <div>
+                  <p className="font-medium">{student.student_number} {student.name}</p>
+                  <p className="text-xs text-foreground-secondary">
+                    {student.email || getStudentEmail(student.student_number)}
+                  </p>
+                </div>
+                <div className="flex items-center justify-center">
+                  <Badge
+                    className={
+                      (student.total_penalty || 0) > 0
+                        ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                        : (student.total_penalty || 0) < 0
+                          ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                          : 'bg-gray-500/10 text-gray-500 border-gray-500/20'
+                    }
+                  >
+                    {student.total_penalty || 0}
+                  </Badge>
+                </div>
+                <div className="flex items-center">
+                  {student.study_location ? (
+                    <span className="text-sm">{student.study_location}</span>
+                  ) : (
+                    <span className="text-sm text-foreground-secondary">-</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t border-border mt-4 px-4">
+              <p className="text-sm text-foreground-secondary">
+                {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedStudents.length)} / {filteredAndSortedStudents.length}
+              </p>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Table */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">학생 목록</CardTitle>
-                  <CardDescription>
-                    {format(new Date(), 'M월 d일', { locale: ko })} 기준
-                  </CardDescription>
+      {/* Student Detail Modal */}
+      {selectedStudent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background border border-border rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className={`h-14 w-14 rounded-full bg-gradient-to-br ${getAvatarColor(selectedStudent.student_number)} flex items-center justify-center`}>
+                    <span className="text-xl font-bold text-white">
+                      {selectedStudent.name[0]}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-lg">{selectedStudent.name}</p>
+                    <p className="text-sm text-foreground-secondary">{selectedStudent.student_number}</p>
+                  </div>
                 </div>
-                <p className="text-sm text-foreground-secondary">
-                  {filteredAndSortedStudents.length}명
-                </p>
+                <button
+                  onClick={() => setSelectedStudent(null)}
+                  className="p-1 hover:bg-background-secondary rounded"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                </div>
-              ) : !searchQuery.trim() ? (
-                <div className="flex flex-col items-center justify-center py-12 text-foreground-secondary">
-                  <Search className="h-12 w-12 mb-4 opacity-50" />
-                  <p>검색어를 입력하세요.</p>
-                  <p className="text-sm">(*를 입력해 모두 선택)</p>
-                </div>
-              ) : paginatedStudents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-foreground-secondary">
-                  <Users className="h-12 w-12 mb-4 opacity-50" />
-                  <p>검색 결과가 없습니다</p>
-                </div>
-              ) : (
-                <>
-                  {/* Table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left py-3 px-2 font-medium text-foreground-secondary">정보</th>
-                          <th className="text-center py-3 px-2 font-medium text-foreground-secondary">총 벌점</th>
-                          <th className="text-left py-3 px-2 font-medium text-foreground-secondary">자습 장소</th>
-                          <th className="text-center py-3 px-2 font-medium text-foreground-secondary">상세</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedStudents.map((student) => (
-                          <tr
-                            key={student.id}
-                            className="border-b border-border last:border-0 hover:bg-background-secondary/50 cursor-pointer"
-                            onClick={() => setSelectedStudent(student)}
-                          >
-                            <td className="py-3 px-2">
-                              <div>
-                                <p className="font-medium">{student.student_number} {student.name}</p>
-                                {student.email && (
-                                  <p className="text-xs text-foreground-secondary">{student.email}</p>
-                                )}
-                              </div>
-                            </td>
-                            <td className="text-center py-3 px-2">
-                              <Badge
-                                className={
-                                  (student.total_penalty || 0) > 0
-                                    ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                                    : (student.total_penalty || 0) < 0
-                                      ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                                      : 'bg-gray-500/10 text-gray-500 border-gray-500/20'
-                                }
-                              >
-                                {student.total_penalty || 0}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-2">
-                              {student.study_location ? (
-                                <span className="text-sm">{student.study_location}</span>
-                              ) : (
-                                <span className="text-sm text-foreground-secondary">-</span>
-                              )}
-                            </td>
-                            <td className="text-center py-3 px-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setSelectedStudent(student)
-                                }}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
 
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
-                      <p className="text-sm text-foreground-secondary">
-                        {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedStudents.length)} / {filteredAndSortedStudents.length}
-                      </p>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                          disabled={currentPage === 1}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                          disabled={currentPage === totalPages}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
+              {/* Info */}
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-foreground-secondary">이메일</span>
+                  <span className="text-right">{selectedStudent.email || getStudentEmail(selectedStudent.student_number)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-foreground-secondary">성별</span>
+                  <span>{selectedStudent.gender || '-'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-foreground-secondary">전화번호</span>
+                  <span>{selectedStudent.phone || '-'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-foreground-secondary">부모님 전화번호</span>
+                  <span>{selectedStudent.parent_phone || '-'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-foreground-secondary">등록 년도</span>
+                  <span>{selectedStudent.registration_year || '-'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-foreground-secondary">총 벌점</span>
+                  <Badge
+                    className={
+                      (selectedStudent.total_penalty || 0) > 0
+                        ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                        : (selectedStudent.total_penalty || 0) < 0
+                          ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                          : 'bg-gray-500/10 text-gray-500 border-gray-500/20'
+                    }
+                  >
+                    {selectedStudent.total_penalty || 0}
+                  </Badge>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-foreground-secondary">오늘 자습 장소</span>
+                  <span>{selectedStudent.study_location || '-'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-
-        {/* Detail Panel */}
-        <div>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">학생 상세 정보</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedStudent ? (
-                <div className="space-y-4">
-                  {/* Avatar & Name */}
-                  <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 rounded-full bg-accent/10 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-accent">
-                        {selectedStudent.name[0]}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-lg">{selectedStudent.name}</p>
-                      <p className="text-sm text-foreground-secondary">{selectedStudent.student_number}</p>
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between py-2 border-b border-border">
-                      <span className="text-foreground-secondary">이메일</span>
-                      <span>{selectedStudent.email || '-'}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border">
-                      <span className="text-foreground-secondary">성별</span>
-                      <span>{selectedStudent.gender || '-'}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border">
-                      <span className="text-foreground-secondary">전화번호</span>
-                      <span>{selectedStudent.phone || '-'}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border">
-                      <span className="text-foreground-secondary">부모님 전화번호</span>
-                      <span>{selectedStudent.parent_phone || '-'}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border">
-                      <span className="text-foreground-secondary">등록 년도</span>
-                      <span>{selectedStudent.registration_year || '-'}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-border">
-                      <span className="text-foreground-secondary">총 벌점</span>
-                      <Badge
-                        className={
-                          (selectedStudent.total_penalty || 0) > 0
-                            ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                            : (selectedStudent.total_penalty || 0) < 0
-                              ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                              : 'bg-gray-500/10 text-gray-500 border-gray-500/20'
-                        }
-                      >
-                        {selectedStudent.total_penalty || 0}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-foreground-secondary">오늘 자습 장소</span>
-                      <span>{selectedStudent.study_location || '-'}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-foreground-secondary">
-                  <p>학생을 선택하면</p>
-                  <p>상세 정보를 볼 수 있습니다</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
