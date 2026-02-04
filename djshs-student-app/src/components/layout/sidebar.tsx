@@ -80,7 +80,7 @@ export function Sidebar() {
               <span className="text-white font-bold text-sm">D</span>
             </div>
             <div>
-              <span className="font-bold text-lg">DSHS.APP</span>
+              <span className="font-bold text-lg">DJSHS.APP</span>
               <span className="text-xs text-foreground-secondary ml-2">v1.0.0</span>
             </div>
           </Link>

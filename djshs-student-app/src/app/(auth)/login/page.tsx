@@ -53,7 +53,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-accent flex items-center justify-center">
             <span className="text-white font-bold text-xl">D</span>
           </div>
-          <CardTitle className="text-2xl">DSHS.APP</CardTitle>
+          <CardTitle className="text-2xl">DJSHS.APP</CardTitle>
           <CardDescription>학생현황관리시스템에 로그인하세요</CardDescription>
         </CardHeader>
         <CardContent>

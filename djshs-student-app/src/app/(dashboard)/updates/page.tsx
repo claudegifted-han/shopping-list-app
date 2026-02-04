@@ -75,7 +75,7 @@ export default function UpdatesPage() {
       </div>
 
       <p className="text-xs text-foreground-secondary text-center mt-8">
-        DSHS.APP v1.0.0 - 대전과학고등학교 학생현황관리시스템
+        DJSHS.APP v1.0.0 - 대전과학고등학교 학생현황관리시스템
       </p>
     </div>
   )

@@ -32,7 +32,7 @@ export function Header() {
           <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center">
             <span className="text-white font-bold text-sm">D</span>
           </div>
-          <span className="font-bold">DSHS.APP</span>
+          <span className="font-bold">DJSHS.APP</span>
         </Link>
 
         {/* Search Bar */}

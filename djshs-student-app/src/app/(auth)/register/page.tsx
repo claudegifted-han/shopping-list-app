@@ -122,7 +122,7 @@ export default function RegisterPage() {
             <span className="text-white font-bold text-xl">D</span>
           </div>
           <CardTitle className="text-2xl">회원가입</CardTitle>
-          <CardDescription>DSHS.APP 계정을 생성하세요</CardDescription>
+          <CardDescription>DJSHS.APP 계정을 생성하세요</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">

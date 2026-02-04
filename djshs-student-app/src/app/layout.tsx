@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'DSHS.APP - 학생현황관리시스템',
+  title: 'DJSHS.APP - 학생현황관리시스템',
   description: '대전과학고등학교 학생현황관리시스템',
   icons: {
     icon: '/favicon.ico',
