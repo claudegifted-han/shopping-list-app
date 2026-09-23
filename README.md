@@ -16,3 +16,7 @@
 ## 데모
 
 GitHub Pages에서 바로 확인할 수 있습니다.
+
+## R&E 주제 심사 그래프
+
+이 저장소 루트에는 R&E 주제 제안서를 여러 AI 에이전트가 나눠 심사하는 Claude Code 워크플로(`/rne-review-graph`)도 들어 있습니다. 사용법은 [rne-review/README.md](rne-review/README.md)를 보세요.

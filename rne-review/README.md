@@ -19,8 +19,10 @@ R&E 주제 제안서 한 건을 여러 AI 에이전트가 나눠 심사하는 Cl
 
 ## 준비물
 
-- Claude Code (WSL Ubuntu 포함), `python3` — 스크립트는 표준 라이브러리만 씁니다.
-- 기존 스킬 8개가 `~/.claude/skills/`에 있어야 합니다. Claude Code에서 `/skills`로 확인하세요.
+- Claude Code (웹, WSL Ubuntu 포함), `python3` — 스크립트는 표준 라이브러리만 씁니다.
+- 기존 스킬 8개. Claude Code에서 `/skills`로 확인하세요.
+  - Claude Code 웹: claude.ai에 올려 둔 스킬이 세션에 자동으로 동기화됩니다. 목록에는 `anthropic-skills:physics-rne-agent`처럼 보이지만, 에이전트의 `skills:` 줄에 적힌 짧은 이름(`physics-rne-agent`)으로도 그대로 연결됩니다.
+  - 로컬: `~/.claude/skills/`에 있어야 합니다.
 
 | 노드 | 쓰는 스킬 |
 |---|---|
@@ -33,16 +35,15 @@ R&E 주제 제안서 한 건을 여러 AI 에이전트가 나눠 심사하는 Cl
 
 ## 설치
 
-```bash
-unzip rne-review-graph.zip -d ~/
-cd ~/rne-review-graph
-claude
-```
+이 저장소에 이미 설치되어 있습니다. **저장소 루트가 곧 프로젝트**이고, 스킬과 에이전트가 루트의 `.claude/` 안에 들어 있어 따로 설치할 것이 없습니다.
 
-한글 파일 이름이 깨져 풀리면 `python3 -m zipfile -e rne-review-graph.zip ~/`로 풀어 주세요.
+| 어디서 | 어떻게 |
+|---|---|
+| Claude Code 웹 | 이 저장소로 새 세션을 열면 `/rne-review-graph`와 노드 에이전트 11개가 바로 잡힙니다 |
+| 로컬 (WSL 등) | 저장소를 `git clone` 한 뒤 저장소 루트에서 `claude` |
+| 다른 프로젝트 | `.claude/skills/rne-review-graph/`와 `.claude/agents/rne-*.md`를 `~/.claude/` 아래 같은 위치로 복사 |
 
-이 폴더 자체가 프로젝트입니다. 스킬과 에이전트가 `.claude/` 안에 들어 있어 따로 설치할 것이 없습니다.
-다른 프로젝트에서도 쓰려면 `.claude/skills/rne-review-graph/`와 `.claude/agents/*.md`를 `~/.claude/` 아래 같은 위치로 복사하세요.
+세션 도중에 `.claude/`를 새로 받았다면 에이전트는 다음 세션부터 잡힙니다. 새 세션을 여세요.
 
 ## 예시 제안서로 써 보기
 
@@ -60,11 +61,13 @@ claude
 /rne-review-graph rne-review/proposals/창의-07_제안서.hwpx 창의-07
 ```
 
-- `.hwpx` · `.docx` · `.md` · `.txt`는 스크립트가 바로 읽고, `.pdf`는 Claude가 읽어 옮겨 적습니다.
+- **Claude Code 웹**: 제안서 파일을 채팅에 첨부한 뒤 `/rne-review-graph <첨부한 파일> 창의-07`처럼 부르세요. 첨부 파일은 세션 안의 업로드 폴더에 들어가므로 저장소에 올릴 필요가 없습니다.
+- **로컬**: `rne-review/proposals/`에 넣고 위 명령처럼 부르세요. 이 폴더의 실제 제안서는 git에 올라가지 않습니다(아래 "공개 저장소" 참고).
+- `.hwpx` · `.docx` · `.md` · `.txt`는 스크립트가 바로 읽고, `.pdf`는 Claude가 읽어 옮겨 적습니다. `.txt`는 UTF-8, 한글 윈도우 기본(CP949), 유니코드(UTF-16) 저장 모두 읽습니다.
 - 구버전 `.hwp`는 한글에서 PDF나 HWPX로 저장한 뒤 넣어 주세요.
-- 과제 ID는 부서에서 쓰는 번호(창의-07, 물03 등)를 그대로 쓰면 됩니다.
+- 과제 ID는 부서에서 쓰는 번호(창의-07, 물03 등)를 그대로 쓰면 됩니다. 첨부 파일 이름 앞에는 임의의 글자가 붙으므로 ID를 함께 적어 주는 편이 확실합니다.
 
-중간에 끊겼다면: `/rne-review-graph 창의-07`
+중간에 끊겼다면: `/rne-review-graph 창의-07` (Claude Code 웹에서는 카드가 그 세션의 작업 공간에만 있으므로 같은 세션 안에서 이어 가세요)
 전체 현황: `python3 .claude/skills/rne-review-graph/scripts/card.py list`
 
 ## 결과물
@@ -78,18 +81,22 @@ claude
 | `nodes/*.md` | 교과·운영·협의회의 전문 검토문 (교사용) |
 | `proposal.md`, `source/` | 원문과 원본 파일 |
 
+과제 카드는 git에 올라가지 않습니다. Claude Code 웹 세션은 끝나면 작업 공간이 지워지므로, `feedback.md`와 필요한 검토문은 세션이 끝나기 전에 앱에서 열어 복사하거나 내려받아 두세요.
+
 ## 우리 부서에 맞게 고치기
 
 | 바꾸고 싶은 것 | 고칠 파일 |
 |---|---|
 | 관문 기준 (공통 검토 카드, 등급 A·B·C) | `.claude/skills/rne-review-graph/references/review-card.md` |
-| 분야 판별 규칙·안전 플래그 | `.claude/skills/rne-review-graph/references/routing.md` |
+| 분야 판별 규칙·안전 플래그 | `.claude/skills/rne-review-graph/references/routing.md` — 플래그를 새로 만들면 `scripts/card.py`의 `FLAGS`와 `references/node-output.md`의 flags 줄에도 넣으세요 (자동 시험이 어긋남을 알려 줍니다) |
 | 예산·일정·지도 기준 숫자 | `rne-review/context/운영기준.md` — 빈칸(개인 사용 기자재, 안전교육 절차 등)을 채우면 운영 노드가 그대로 씁니다 |
 | 노드별 지시문·분량 | `.claude/agents/*.md` |
 | 속도와 비용 | 에이전트의 `model:` 줄 (`inherit` → `sonnet`이면 빨라짐) |
 | 흐름 자체 (노드 추가 등) | `graph.yaml`과 `scripts/card.py`의 `compute_next`를 함께 |
 
 관문 기준은 2학기 파일럿 중인 공통 검토 카드로 바꿔 쓰도록 만들었습니다. 항목 ID(G1~)와 등급 표기만 유지하면 스크립트는 그대로 동작합니다.
+
+무엇을 고쳤든 고친 뒤에는 자동 시험을 한 번 돌려 보세요 (아래 "시험한 것").
 
 ## 알아 둘 점
 
@@ -98,12 +105,13 @@ claude
 - 제안서 한 건에 에이전트가 8~9번(재검토하면 더) 불립니다. 시험 환경에서는 노드 하나에 몇 분에서 수십 분이 걸렸습니다. 여러 건을 돌릴 때는 교과 노드의 `model`을 `sonnet`으로 바꿔 보세요.
 - 오케스트레이터는 스스로 결재하지 않도록 되어 있습니다. 결재 질문에 답하지 않으면 그 자리에서 멈춥니다.
 - 분야 판별 노드는 학생 이름과 학년만 카드로 옮기고 학번·연락처는 옮기지 않습니다.
+- **공개 저장소**: 이 저장소는 누구나 볼 수 있습니다. 그래서 `rne-review/.gitignore`가 과제 카드(`cards/` 안)와 실제 제안서(`proposals/` 안, `예시_`로 시작하는 파일 제외)를 git에서 빼 둡니다. 카드를 기록으로 남기려면 먼저 저장소를 비공개로 바꾼 뒤 그 규칙을 지우세요.
+- 이 저장소에서 다른 작업을 할 때 심사 노드가 끼어들지 않습니다. 노드 에이전트는 모두 "오케스트레이터가 부를 때만" 쓰도록 적혀 있고, `/rne-review-graph`는 사람만 부를 수 있습니다.
 
 ## 파일 구성
 
 ```
-rne-review-graph/
-├── README.md
+(저장소 루트)
 ├── .claude/
 │   ├── skills/rne-review-graph/
 │   │   ├── SKILL.md              오케스트레이터 (/rne-review-graph)
@@ -113,7 +121,8 @@ rne-review-graph/
 │   │   │   ├── routing.md        분야 판별 규칙
 │   │   │   ├── review-card.md    관문 기준 (공통 검토 카드)
 │   │   │   └── fallback-rubric.md
-│   │   └── scripts/card.py       과제 카드 도구 — 생성·추출·합치기·형식 검사·다음 단계·결재
+│   │   ├── scripts/card.py       과제 카드 도구 — 생성·추출·합치기·형식 검사·다음 단계·결재
+│   │   └── tests/test_card.py    자동 시험 — 흐름·형식 검사·추출·배선
 │   └── agents/
 │       ├── rne-router.md                분야 판별
 │       ├── rne-review-{math,physics,chemistry,biology,earth,cs}.md
@@ -122,13 +131,22 @@ rne-review-graph/
 │       ├── rne-gate.md                  관문 (읽기 전용 독립 검수)
 │       └── rne-feedback-writer.md       학생 피드백
 └── rne-review/
+    ├── README.md                        이 문서
+    ├── .gitignore                       실제 카드·제안서를 git에서 빼는 규칙
     ├── proposals/예시_물03_제안서.md    시험용 가상 제안서
     ├── context/운영기준.md
     ├── 예시_결과/                       예시 제안서를 돌린 결과 일부
-    └── cards/                           과제 카드가 쌓이는 곳
+    └── cards/                           과제 카드가 쌓이는 곳 (git에 올라가지 않음)
 ```
 
 ## 시험한 것
 
-- `card.py`: 접수 → 분야 판별 → 동시 검토 → 협의회 → 관문 재검토 → 결재 재검토 요청 → 다시 결재 → 피드백 → 완료, 관문 3회 미통과 시 결재로 넘기기, 형식이 틀린 결과 거부, HWPX·DOCX 본문 추출을 자동 시험으로 확인했습니다.
+자동 시험은 저장소 루트에서 이렇게 돌립니다. 임시 폴더에서 돌아 실제 `rne-review/`는 건드리지 않고, 몇 초면 끝납니다.
+
+```bash
+python3 -m unittest discover -s .claude/skills/rne-review-graph/tests -v
+```
+
+- `card.py`: 접수 → 분야 판별 → 동시 검토 → 협의회 → 관문 재검토 → 결재 재검토 요청 → 다시 결재 → 피드백 → 완료, 관문 3회 미통과 시 결재로 넘기기, 협의회만 되돌리기, 보류·반려, 형식이 틀린 결과 거부, HWPX·DOCX·텍스트(인코딩별) 본문 추출.
+- 배선: `graph.yaml`·`SKILL.md`·에이전트 파일·`routing.md`·`node-output.md`·`card.py`의 노드·스킬·플래그·결재 선택지·관문 횟수가 서로 맞는지. 한쪽만 고치면 이 시험이 실패합니다.
 - 노드 지시문을 그대로 준 에이전트로 예시 제안서를 처음부터 끝까지 돌렸고, 모든 노드 결과가 형식 검사를 통과했습니다(관문 등급 B로 통과, 조건부 승인, 학생 피드백 약 4,100자).

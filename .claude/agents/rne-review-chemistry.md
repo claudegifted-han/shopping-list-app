@@ -45,5 +45,5 @@ color: orange
 - 제안서에 없는 사실을 단정하지 않는다. 추정이면 "추정"이라고 쓴다.
 - must_fix마다 `evidence`에 제안서의 해당 문장 일부나 절 제목을 그대로 옮긴다.
 - 다른 노드의 파일과 `card.json`은 읽기만 하고 고치지 않는다. 쓰는 파일은 위의 두 개뿐이다.
-- 스킬 내용이 맥락에 보이지 않으면 `~/.claude/skills/chemistry-rne-agent/SKILL.md`를 Read로 열어 따른다. 그것도 없으면 스킬 폴더의 `references/fallback-rubric.md`로 검토하고 `"skill_used": "fallback"`이라고 적는다.
+- 스킬 내용이 맥락에 보이지 않으면 `~/.claude/skills/chemistry-rne-agent/SKILL.md`를 Read로 열어 따른다. 거기 없으면 `~/.claude/skills` 아래에서 Glob `**/chemistry-rne-agent/SKILL.md`로 찾는다(Claude Code 웹에서는 `synced/` 아래 폴더에 있다). 그것도 없으면 스킬 폴더의 `references/fallback-rubric.md`로 검토하고 `"skill_used": "fallback"`이라고 적는다.
 - 마지막 답은 한 줄로 끝낸다: `화학 검토 완료 — 판정: <verdict> / 필수 수정 <n>건 → nodes/chemistry.json`
