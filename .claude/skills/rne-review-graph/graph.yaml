@@ -1,0 +1,75 @@
+# R&E 주제 심사 그래프 — 사람이 읽는 지도
+# 실제 분기 판단은 scripts/card.py 의 status 가 이 지도대로 한다.
+# 흐름을 바꿀 때는 이 파일과 card.py(compute_next)를 함께 고친다.
+
+graph: rne-proposal-review
+version: 1
+
+state:
+  card: rne-review/cards/<과제ID>/card.json       # 공유 기록. card.py 만 쓴다
+  proposal: rne-review/cards/<과제ID>/proposal.md  # 모든 노드가 읽는 원문 한 벌
+  node_outputs: rne-review/cards/<과제ID>/nodes/   # 노드는 자기 파일만 쓴다
+  contract: references/node-output.md              # 노드 결과 형식
+
+nodes:
+  intake:
+    kind: script
+    does: "card.py new → card.py extract → proposal.md"
+  router:
+    kind: agent
+    agent: rne-router
+    reads: [proposal.md, references/routing.md]
+    writes: nodes/router.json
+  review:
+    kind: agent-group
+    parallel: true                                  # 한 메시지에서 동시에 부른다
+    selects: "router.subjects(1~3개) + ops(항상)"
+    members:
+      math:      {agent: rne-review-math,      skill: math-rne-agent}
+      physics:   {agent: rne-review-physics,   skill: physics-rne-agent}
+      chemistry: {agent: rne-review-chemistry, skill: chemistry-rne-agent}
+      biology:   {agent: rne-review-biology,   skill: biology-rne-agent}
+      earth:     {agent: rne-review-earth,     skill: earth-science-rne-agent}
+      cs:        {agent: rne-review-cs,        skill: cs-rne-agent}
+      ops:       {agent: rne-review-ops,       skill: rne-operations-agent, reads_extra: rne-review/context/운영기준.md}
+    writes: "nodes/<노드>.md + nodes/<노드>.json"
+  council:
+    kind: agent
+    agent: rne-council
+    skill: rne-council-simulator                   # 모드 C(쟁점 중심 압축), 1라운드 = 실제 검토 결과
+    writes: [nodes/council.md, nodes/council.json]
+  gate:
+    kind: agent
+    agent: rne-gate
+    readonly: true                                  # 새 맥락의 독립 검수자
+    criteria: references/review-card.md
+    writes_via_orchestrator: nodes/gate.json
+  approval:
+    kind: human
+    via: AskUserQuestion
+    options: [승인, 조건부 승인, 재검토 요청, 반려, 보류]
+    records: "card.py approve"
+  feedback:
+    kind: agent
+    agent: rne-feedback-writer
+    writes: [feedback.md, nodes/feedback.json]
+
+edges:
+  - {from: intake,   to: router}
+  - {from: router,   to: review,   note: "고른 교과 + 운영을 동시에"}
+  - {from: review,   to: council,  note: "모두 끝나면 모아서 한 번"}
+  - {from: council,  to: gate}
+  - {from: gate,     to: review,   when: "result == revise, 이번 주기 관문 횟수 < 3", note: "지목된 노드만 다시"}
+  - {from: gate,     to: council,  when: "revise 대상이 council 뿐일 때"}
+  - {from: gate,     to: approval, when: "result == pass, 또는 관문 3회 도달(미해결 표시)"}
+  - {from: approval, to: review,   when: "재검토 요청", note: "사람이 지목한 노드만. 관문 횟수를 새로 센다"}
+  - {from: approval, to: feedback, when: "승인 · 조건부 승인 · 반려"}
+  - {from: approval, to: stop,     when: "보류"}
+  - {from: feedback, to: done}
+
+rules:
+  - "같은 단계의 노드는 한 번에 동시에 부른다"
+  - "card.json 은 card.py 만 고친다. 노드 결과는 merge 로 합친다"
+  - "merge 는 형식 검사를 통과한 결과만 합친다"
+  - "결재는 반드시 사람이 한다"
+  - "관문은 한 주기에 최대 3번. 넘으면 미해결로 결재에 올린다"
