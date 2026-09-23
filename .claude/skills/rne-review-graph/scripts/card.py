@@ -107,6 +107,21 @@ def read_json(path):
     return data
 
 
+def read_text_any(path):
+    """UTF-8(BOM 포함)로 먼저 읽고, 안 되면 한글 윈도우 기본값(CP949)으로 읽는다.
+    메모장·한글의 '유니코드' 저장(UTF-16, BOM 있음)도 읽는다."""
+    raw = Path(path).read_bytes()
+    encs = ["utf-8-sig", "cp949"]
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        encs.insert(0, "utf-16")
+    for enc in encs:
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            pass
+    return raw.decode("utf-8", errors="replace")
+
+
 def file_hash(p):
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()[:16]
 
@@ -216,6 +231,11 @@ def check_node(name, x, d):
             e.append(f"flags는 다음 중에서만 고릅니다: {FLAGS}")
         if not str(x.get("reason", "")).strip():
             e.append("reason이 비어 있습니다")
+        if x.get("team") is not None and not _strs(x["team"]):
+            e.append('team은 문자열 배열이어야 합니다 (예: ["학생 A(2학년)", "학생 B(2학년)"])')
+        for k in ("title", "advisor"):
+            if x.get(k) is not None and not isinstance(x[k], str):
+                e.append(f"{k}는 문자열이어야 합니다")
     elif name in REVIEWERS:
         verdict = x.get("verdict")
         if verdict not in VERDICTS:
@@ -420,7 +440,7 @@ def cmd_extract(a):
     out = d / "proposal.md"
     ext = src.suffix.lower()
     if ext in (".md", ".txt"):
-        text = src.read_text(encoding="utf-8", errors="replace")
+        text = read_text_any(src)
     elif ext == ".hwpx":
         with zipfile.ZipFile(src) as z:
             secs = [n for n in z.namelist() if re.match(r"Contents/section\d+\.xml$", n)]
